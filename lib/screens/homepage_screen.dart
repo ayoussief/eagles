@@ -187,7 +187,7 @@ class _HomePageScreenState extends State<HomePageScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-  title: Text('sharks', style: TextStyle(color: Colors.white)),
+  title: Text('Eagles', style: TextStyle(color: Colors.white)),
   backgroundColor: KMainColor,
   actions: [
     if (_isAdmin) // Only display the admin icon if the user is an admin

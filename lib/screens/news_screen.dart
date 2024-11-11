@@ -78,14 +78,45 @@ class NewsScreen extends StatelessWidget {
   }
 
   void _deleteNews(BuildContext context, String newsId) async {
+  // Show a confirmation dialog before deleting
+  bool confirmDelete = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Delete News'),
+        content: Text('Are you sure you want to delete this news?'),
+        actions: <Widget>[
+          TextButton(
+            child: Text('Cancel'),
+            onPressed: () {
+              Navigator.of(context).pop(false); // Cancel the action
+            },
+          ),
+          TextButton(
+            child: Text('Delete'),
+            onPressed: () {
+              Navigator.of(context).pop(true); // Confirm the deletion
+            },
+          ),
+        ],
+      );
+    },
+  ) ?? false;
+
+  // Proceed only if the user confirms
+  if (confirmDelete) {
     try {
       await _firestore.collection('news').doc(newsId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('News deleted successfully')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('News deleted successfully')));
     } catch (e) {
       print("Error deleting news: ${e.toString()}");
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting news: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting news: ${e.toString()}')));
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
