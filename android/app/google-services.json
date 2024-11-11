@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "103880480812",
+    "project_id": "eagles-923ab",
+    "storage_bucket": "eagles-923ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:103880480812:android:ed41e9876413f090f75989",
+        "android_client_info": {
+          "package_name": "com.example.eagles"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8NvW9BPBnkPusX7DmUHGZ4ka14hwTUqk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
