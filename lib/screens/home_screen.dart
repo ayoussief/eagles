@@ -2,24 +2,76 @@ import 'package:eagles/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../main.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  DocumentSnapshot? _lastPostSnapshot;
 
-  // Check if the current user is an admin
+  @override
+  void initState() {
+    super.initState();
+    _listenToNewPosts();
+  }
+
+  Future<void> _listenToNewPosts() async {
+    _firestore
+        .collection('posts')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      final docs = snapshot.docs;
+      if (docs.isNotEmpty &&
+          _lastPostSnapshot != null &&
+          docs.first.id != _lastPostSnapshot!.id) {
+        final newPost = docs.first;
+        _showNotification(newPost['title'], newPost['content']);
+      }
+      _lastPostSnapshot = docs.isNotEmpty ? docs.first : null;
+    });
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'new_post_channel',
+      'New Posts',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+    );
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+    );
+  }
+
   Future<bool> _isAdmin() async {
     User? user = _auth.currentUser;
     if (user == null) return false;
 
-    DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
+    DocumentSnapshot userDoc =
+        await _firestore.collection('users').doc(user.uid).get();
     return userDoc.get('role') == 'admin';
   }
 
-  // Function to handle adding or editing posts
-  Future<void> _addOrEditPosts(BuildContext context, {String? postsId, String? title, String? content}) async {
-    final TextEditingController titleController = TextEditingController(text: title);
-    final TextEditingController contentController = TextEditingController(text: content);
+  Future<void> _addOrEditPosts(BuildContext context,
+      {String? postsId, String? title, String? content}) async {
+    final TextEditingController titleController =
+        TextEditingController(text: title);
+    final TextEditingController contentController =
+        TextEditingController(text: content);
 
     await showDialog(
       context: context,
@@ -47,7 +99,8 @@ class HomeScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () async {
-                if (titleController.text.isNotEmpty && contentController.text.isNotEmpty) {
+                if (titleController.text.isNotEmpty &&
+                    contentController.text.isNotEmpty) {
                   try {
                     if (postsId == null) {
                       await _firestore.collection('posts').add({
@@ -62,13 +115,16 @@ class HomeScreen extends StatelessWidget {
                       });
                     }
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Post saved successfully')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Post saved successfully')));
                   } catch (e) {
                     print("Error saving post: ${e.toString()}");
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving post: ${e.toString()}')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error saving post: ${e.toString()}')));
                   }
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Title and content cannot be empty')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Title and content cannot be empty')));
                 }
               },
               child: Text("Save"),
@@ -79,17 +135,19 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Function to delete a post
   void _deletePost(BuildContext context, String postId) async {
     try {
       await _firestore.collection('posts').doc(postId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Post deleted successfully')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Post deleted successfully')));
     } catch (e) {
       print("Error deleting post: ${e.toString()}");
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting post: ${e.toString()}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting post: ${e.toString()}')));
     }
   }
-@override
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
       future: _isAdmin(),
@@ -100,78 +158,82 @@ class HomeScreen extends StatelessWidget {
         final isAdmin = snapshot.data!;
 
         return Scaffold(
-          backgroundColor: KSecondaryColor, // Set page background color
-          // appBar: AppBar(title: Text("News")),
-          body: StreamBuilder<QuerySnapshot>(
-            stream: _firestore.collection('posts').orderBy('timestamp', descending: true).snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
+            backgroundColor: KSecondaryColor,
+            body: StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('posts')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text("No posts available."));
-              }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text("No posts available."));
+                }
 
-              return ListView(
-                children: snapshot.data!.docs.map((doc) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0), // Add padding between items
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white, // Set news item background to white
-                        borderRadius: BorderRadius.circular(8), // Optional: round corners
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          doc['title'],
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold, // Different style for title
-                            fontSize: 18,
-                            color: Colors.black,
-                          ),
+                return ListView(
+                  children: snapshot.data!.docs.map((doc) {
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        subtitle: Text(
-                          doc['content'],
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black, // Adjust text color for content
+                        child: ListTile(
+                          title: Text(
+                            doc['title'],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.black,
+                            ),
                           ),
-                        ),
-                        trailing: isAdmin
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.edit, color: Colors.black),
-                                    onPressed: () => _addOrEditPosts(
-                                      context,
-                                      postsId: doc.id,
-                                      title: doc['title'],
-                                      content: doc['content'],
+                          subtitle: Text(
+                            doc['content'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black,
+                            ),
+                          ),
+                          trailing: isAdmin
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon:
+                                          Icon(Icons.edit, color: Colors.black),
+                                      onPressed: () => _addOrEditPosts(
+                                        context,
+                                        postsId: doc.id,
+                                        title: doc['title'],
+                                        content: doc['content'],
+                                      ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(Icons.delete, color: Colors.black),
-                                    onPressed: () => _deletePost(context, doc.id),
-                                  ),
-                                ],
-                              )
-                            : null,
+                                    IconButton(
+                                      icon: Icon(Icons.delete,
+                                          color: Colors.black),
+                                      onPressed: () =>
+                                          _deletePost(context, doc.id),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-          floatingActionButton: isAdmin
-              ? FloatingActionButton(
-                  onPressed: () => _addOrEditPosts(context),
-                  child: Icon(Icons.add),
-                )
-              : null,
-        );
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            floatingActionButton: isAdmin
+                ? FloatingActionButton(
+                    onPressed: () => _addOrEditPosts(context),
+                    child: Icon(Icons.add),
+                  )
+                : null);
       },
     );
   }
