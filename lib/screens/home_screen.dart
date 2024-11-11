@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
 import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -176,42 +177,60 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _isAdmin(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
-        }
-        final isAdmin = snapshot.data!;
+@override
+Widget build(BuildContext context) {
+  return FutureBuilder<bool>(
+    future: _isAdmin(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return Center(child: CircularProgressIndicator());
+      }
+      final isAdmin = snapshot.data!;
 
-        return Scaffold(
-            backgroundColor: KSecondaryColor,
-            body: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('posts')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
+      return Scaffold(
+        backgroundColor: KSecondaryColor,
+        body: StreamBuilder<QuerySnapshot>(
+          stream: _firestore
+              .collection('posts')
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text("No posts available."));
-                }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(child: Text("No posts available."));
+            }
 
-                return ListView(
-                  children: snapshot.data!.docs.map((doc) {
-                    return Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
+            return ListView(
+              children: snapshot.data!.docs.map((doc) {
+                // Extract and format the date
+                Timestamp timestamp = doc['timestamp'];
+                DateTime postDate = timestamp.toDate();
+                String formattedDate = DateFormat('MMMM dd, yyyy, h:mm a').format(postDate);
+
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            formattedDate,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                         ),
-                        child: ListTile(
+                        ListTile(
                           title: Text(
                             doc['title'],
                             style: TextStyle(
@@ -232,8 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
-                                      icon:
-                                          Icon(Icons.edit, color: Colors.black),
+                                      icon: Icon(Icons.edit, color: Colors.black),
                                       onPressed: () => _addOrEditPosts(
                                         context,
                                         postsId: doc.id,
@@ -242,28 +260,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     IconButton(
-                                      icon: Icon(Icons.delete,
-                                          color: Colors.black),
-                                      onPressed: () =>
-                                          _deletePost(context, doc.id),
+                                      icon: Icon(Icons.delete, color: Colors.black),
+                                      onPressed: () => _deletePost(context, doc.id),
                                     ),
                                   ],
                                 )
                               : null,
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      ],
+                    ),
+                  ),
                 );
-              },
-            ),
-            floatingActionButton: isAdmin
-                ? FloatingActionButton(
-                    onPressed: () => _addOrEditPosts(context),
-                    child: Icon(Icons.add),
-                  )
-                : null);
-      },
-    );
-  }
+              }).toList(),
+            );
+          },
+        ),
+        floatingActionButton: isAdmin
+            ? FloatingActionButton(
+                onPressed: () => _addOrEditPosts(context),
+                child: Icon(Icons.add),
+              )
+            : null,
+      );
+    },
+  );
+}
 }

@@ -2,6 +2,7 @@ import 'package:eagles/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // Import the intl package for date formatting
 
 class NewsScreen extends StatelessWidget {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -11,13 +12,17 @@ class NewsScreen extends StatelessWidget {
     User? user = _auth.currentUser;
     if (user == null) return false;
 
-    DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
+    DocumentSnapshot userDoc =
+        await _firestore.collection('users').doc(user.uid).get();
     return userDoc.get('role') == 'admin';
   }
 
-  Future<void> _addOrEditNews(BuildContext context, {String? newsId, String? title, String? content}) async {
-    final TextEditingController titleController = TextEditingController(text: title);
-    final TextEditingController contentController = TextEditingController(text: content);
+  Future<void> _addOrEditNews(BuildContext context,
+      {String? newsId, String? title, String? content}) async {
+    final TextEditingController titleController =
+        TextEditingController(text: title);
+    final TextEditingController contentController =
+        TextEditingController(text: content);
 
     await showDialog(
       context: context,
@@ -45,7 +50,8 @@ class NewsScreen extends StatelessWidget {
             ),
             TextButton(
               onPressed: () async {
-                if (titleController.text.isNotEmpty && contentController.text.isNotEmpty) {
+                if (titleController.text.isNotEmpty &&
+                    contentController.text.isNotEmpty) {
                   try {
                     if (newsId == null) {
                       await _firestore.collection('news').add({
@@ -60,13 +66,16 @@ class NewsScreen extends StatelessWidget {
                       });
                     }
                     Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('News saved successfully')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('News saved successfully')));
                   } catch (e) {
                     print("Error saving news: ${e.toString()}");
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving news: ${e.toString()}')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error saving news: ${e.toString()}')));
                   }
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Title and content cannot be empty')));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Title and content cannot be empty')));
                 }
               },
               child: Text("Save"),
@@ -78,45 +87,45 @@ class NewsScreen extends StatelessWidget {
   }
 
   void _deleteNews(BuildContext context, String newsId) async {
-  // Show a confirmation dialog before deleting
-  bool confirmDelete = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Delete News'),
-        content: Text('Are you sure you want to delete this news?'),
-        actions: <Widget>[
-          TextButton(
-            child: Text('Cancel'),
-            onPressed: () {
-              Navigator.of(context).pop(false); // Cancel the action
-            },
-          ),
-          TextButton(
-            child: Text('Delete'),
-            onPressed: () {
-              Navigator.of(context).pop(true); // Confirm the deletion
-            },
-          ),
-        ],
-      );
-    },
-  ) ?? false;
+    // Show a confirmation dialog before deleting
+    bool confirmDelete = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Delete News'),
+              content: Text('Are you sure you want to delete this news?'),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop(false); // Cancel the action
+                  },
+                ),
+                TextButton(
+                  child: Text('Delete'),
+                  onPressed: () {
+                    Navigator.of(context).pop(true); // Confirm the deletion
+                  },
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
 
-  // Proceed only if the user confirms
-  if (confirmDelete) {
-    try {
-      await _firestore.collection('news').doc(newsId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('News deleted successfully')));
-    } catch (e) {
-      print("Error deleting news: ${e.toString()}");
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting news: ${e.toString()}')));
+    // Proceed only if the user confirms
+    if (confirmDelete) {
+      try {
+        await _firestore.collection('news').doc(newsId).delete();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('News deleted successfully')));
+      } catch (e) {
+        print("Error deleting news: ${e.toString()}");
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting news: ${e.toString()}')));
+      }
     }
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -130,9 +139,11 @@ class NewsScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: KSecondaryColor, // Set page background color
-          // appBar: AppBar(title: Text("News")),
           body: StreamBuilder<QuerySnapshot>(
-            stream: _firestore.collection('news').orderBy('timestamp', descending: true).snapshots(),
+            stream: _firestore
+                .collection('news')
+                .orderBy('timestamp', descending: true)
+                .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Center(child: CircularProgressIndicator());
@@ -144,28 +155,49 @@ class NewsScreen extends StatelessWidget {
 
               return ListView(
                 children: snapshot.data!.docs.map((doc) {
+                  // Format the timestamp to a readable date
+                  Timestamp timestamp = doc['timestamp'];
+                  DateTime date = timestamp.toDate();
+                  String formattedDate =
+                      DateFormat('MMM dd, yyyy').format(date);
+
                   return Padding(
-                    padding: const EdgeInsets.all(8.0), // Add padding between items
+                    padding: const EdgeInsets.all(8.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white, // Set news item background to white
-                        borderRadius: BorderRadius.circular(8), // Optional: round corners
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: ListTile(
                         title: Text(
                           doc['title'],
                           style: TextStyle(
-                            fontWeight: FontWeight.bold, // Different style for title
+                            fontWeight: FontWeight.bold,
                             fontSize: 18,
                             color: Colors.black,
                           ),
                         ),
-                        subtitle: Text(
-                          doc['content'],
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black, // Adjust text color for content
-                          ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              doc['content'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black,
+                              ),
+                            ),
+                            SizedBox(
+                                height:
+                                    4), // Space between content and additional info
+                            Text(
+                              'Date: $formattedDate', // Display formatted date
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                         trailing: isAdmin
                             ? Row(
@@ -181,8 +213,10 @@ class NewsScreen extends StatelessWidget {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: Icon(Icons.delete, color: Colors.black),
-                                    onPressed: () => _deleteNews(context, doc.id),
+                                    icon:
+                                        Icon(Icons.delete, color: Colors.black),
+                                    onPressed: () =>
+                                        _deleteNews(context, doc.id),
                                   ),
                                 ],
                               )
