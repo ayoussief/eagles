@@ -1,6 +1,8 @@
+import 'package:eagles/providers/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -61,9 +63,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'governmentId': _govtIdController.text,
             'profilePictureUrl': profilePictureUrl,
             'termsAccepted': _termsAccepted,
-            'preferredLanguage': _selectedLanguage, // Save the language preference
+            'preferredLanguage': _selectedLanguage,
           });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated successfully')));
+
+          // Update app language
+          if (_selectedLanguage != null) {
+            Provider.of<LanguageProvider>(context, listen: false)
+                .setLocale(_selectedLanguage!);
+          }
+
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Profile updated successfully')));
         }
       } catch (e) {
         print('Failed to update user data: $e');
@@ -157,7 +167,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 items: [
                   DropdownMenuItem(value: 'en', child: Text('English')),
                   DropdownMenuItem(value: 'ar', child: Text('Arabic')),
-                  // Add more language options as needed
                 ],
                 decoration: InputDecoration(labelText: 'Select Language'),
               ),
