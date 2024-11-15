@@ -159,7 +159,7 @@ class NewsScreen extends StatelessWidget {
                   Timestamp timestamp = doc['timestamp'];
                   DateTime date = timestamp.toDate();
                   String formattedDate =
-                      DateFormat('MMM dd, yyyy').format(date);
+                      DateFormat('MMM dd, yyyy, h:mm a').format(date);
 
                   return Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -181,22 +181,24 @@ class NewsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              doc['content'],
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.black,
-                              ),
-                            ),
-                            SizedBox(
-                                height:
-                                    4), // Space between content and additional info
-                            Text(
                               'Date: $formattedDate', // Display formatted date
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                               ),
                             ),
+                            SizedBox(
+                                height:
+                                    4), 
+                            Text(
+                              doc['content'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black,
+                              ),
+                            ),
+                            // Space between content and additional info
+                            
                           ],
                         ),
                         trailing: isAdmin
