@@ -26,6 +26,7 @@ class LoginScreen extends StatelessWidget {
     try {
       DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(userId).get();
+
       if (userDoc.exists) {
         String? preferredLanguage = userDoc['preferredLanguage'] as String?;
         if (preferredLanguage != null) {
