@@ -13,6 +13,8 @@ class SignupScreen extends StatelessWidget {
   String? _name , _email, _password;
   final _auth = Auth();
 
+  SignupScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     double height = MediaQuery.of(context).size.height;

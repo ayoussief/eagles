@@ -75,7 +75,7 @@ void main() async {
 
   const AndroidInitializationSettings initializationSettingsAndroid =
       AndroidInitializationSettings('@mipmap/ic_launcher');
-  final InitializationSettings initializationSettings = InitializationSettings(
+  const InitializationSettings initializationSettings = InitializationSettings(
     android: initializationSettingsAndroid,
   );
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
@@ -121,8 +121,8 @@ class MyApp extends StatelessWidget {
       },
       builder: (context, child) {
         return LocalizationsWrapper(
-          child: child!,
           languageCode: languageProvider.locale.languageCode,
+          child: child!,
         );
       },
     );
