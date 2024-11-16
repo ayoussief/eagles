@@ -108,7 +108,6 @@ class LoginScreen extends StatelessWidget {
                         final userCredential =
                             await _auth.signIn(_email!, _password!);
                         final userId = userCredential.user?.uid;
-                        // load user preferred language
                         if (userId != null) {
                           await _loadPreferredLanguage(context, userId);
                           modalhud.changeisLoading(false);
