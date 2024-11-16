@@ -51,8 +51,8 @@ Map<String, Map<String, String>> translations = {
     'no_stocks_added': 'لم تتم إضافة أي أسهم',
     'add_stock': 'إضافة سهم',
     'settingsTitle': 'الإعدادات',
-    'name': '',
-
+    'name': 'الاسم',
+    'email': 'البريد الإلكتروني',
     'phoneNumber': 'رقم الهاتف',
     'governmentId': 'رقم الهوية الحكومية',
     'enterName': 'أدخل اسمك',

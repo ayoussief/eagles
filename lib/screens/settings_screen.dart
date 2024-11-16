@@ -1,3 +1,4 @@
+import 'package:eagles/main.dart';
 import 'package:eagles/providers/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -72,8 +73,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .setLocale(_selectedLanguage!);
           }
 
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Profile updated successfully')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_translate(context, 'profileUpdated'))),
+          );
         }
       } catch (e) {
         print('Failed to update user data: $e');
@@ -81,11 +83,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String _translate(BuildContext context, String key) {
+    final languageCode =
+        Provider.of<LanguageProvider>(context, listen: false).locale.languageCode;
+    return translations[languageCode]?[key] ?? key;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings'),
+        title: Text(_translate(context, 'settingsTitle')),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -100,42 +108,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               TextFormField(
                 controller: _nameController,
-                decoration: InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(
+                  labelText: _translate(context, 'name'),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
+                    return _translate(context, 'enterName');
                   }
                   return null;
                 },
               ),
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(labelText: 'Email'),
+                decoration: InputDecoration(
+                  labelText: _translate(context, 'email'),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return _translate(context, 'enterEmail');
                   }
                   return null;
                 },
               ),
               TextFormField(
                 controller: _phoneController,
-                decoration: InputDecoration(labelText: 'Phone Number'),
+                decoration: InputDecoration(
+                  labelText: _translate(context, 'phoneNumber'),
+                ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
+                    return _translate(context, 'enterPhoneNumber');
                   }
                   return null;
                 },
               ),
               TextFormField(
                 controller: _govtIdController,
-                decoration: InputDecoration(labelText: 'Government ID Number'),
+                decoration: InputDecoration(
+                  labelText: _translate(context, 'governmentId'),
+                ),
                 keyboardType: TextInputType.text,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your government ID number';
+                    return _translate(context, 'enterGovernmentId');
                   }
                   return null;
                 },
@@ -152,7 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                   Expanded(
-                    child: Text('I accept the terms and conditions'),
+                    child: Text(_translate(context, 'acceptTerms')),
                   ),
                 ],
               ),
@@ -165,15 +181,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   });
                 },
                 items: [
-                  DropdownMenuItem(value: 'en', child: Text('English')),
-                  DropdownMenuItem(value: 'ar', child: Text('Arabic')),
+                  DropdownMenuItem(
+                    value: 'en',
+                    child: Text(_translate(context, 'english')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'ar',
+                    child: Text(_translate(context, 'arabic')),
+                  ),
                 ],
-                decoration: InputDecoration(labelText: 'Select Language'),
+                decoration: InputDecoration(
+                  labelText: _translate(context, 'selectLanguage'),
+                ),
               ),
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _updateUserData,
-                child: Text('Save Changes'),
+                child: Text(_translate(context, 'saveChanges')),
               ),
             ],
           ),
