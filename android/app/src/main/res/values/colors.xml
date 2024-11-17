@@ -1,0 +1,4 @@
+<resources>
+    <!-- Define color -->
+    <color name="splashBackgroundColor">#FFC12F</color>
+</resources>
