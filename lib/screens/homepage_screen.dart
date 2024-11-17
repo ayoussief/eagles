@@ -37,7 +37,10 @@ class _HomePageScreenState extends State<HomePageScreen> {
       final userId = FirebaseAuth.instance.currentUser?.uid;
 
       if (userId != null) {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .get();
 
         if (userDoc.exists) {
           setState(() {
@@ -113,7 +116,7 @@ class _HomePageScreenState extends State<HomePageScreen> {
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
           selectedItemColor: KSecondaryColor,
-          unselectedItemColor: Colors.white,
+          unselectedItemColor: Colors.black,
           showSelectedLabels: true,
           showUnselectedLabels: true,
           items: <BottomNavigationBarItem>[
@@ -131,8 +134,8 @@ class _HomePageScreenState extends State<HomePageScreen> {
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings),
-              label: translations[widget.languageCode]?['settings'] ?? 'Settings',
-
+              label:
+                  translations[widget.languageCode]?['settings'] ?? 'Settings',
             ),
           ],
         ),
