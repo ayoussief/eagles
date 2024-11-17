@@ -339,268 +339,261 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // Function to show a dialog to edit a stock's quantity and entry price
-  
-  void _showEditStockDialog(BuildContext context, Map<String, dynamic> stock) {
-  final quantityController = TextEditingController(text: stock['quantity'].toString());
-  final entryPriceController = TextEditingController(text: stock['entryPrice'].toString());
-  final currentPriceController = TextEditingController(text: stock['currentPrice'].toString());
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('Edit Stock'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // TextField(
-            //   controller: quantityController,
-            //   decoration: InputDecoration(labelText: 'Quantity'),
-            //   keyboardType: TextInputType.number,
-            // ),
-            // TextField(
-            //   controller: entryPriceController,
-            //   decoration: InputDecoration(labelText: 'Entry Price'),
-            //   keyboardType: TextInputType.number,
-            // ),
-            TextField(
-              controller: currentPriceController,
-              decoration: InputDecoration(labelText: 'Current Price'),
-              keyboardType: TextInputType.number,
+  void _showEditStockDialog(BuildContext context, Map<String, dynamic> stock) {
+    final quantityController =
+        TextEditingController(text: stock['quantity'].toString());
+    final entryPriceController =
+        TextEditingController(text: stock['entryPrice'].toString());
+    final currentPriceController =
+        TextEditingController(text: stock['currentPrice'].toString());
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit Stock'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // TextField(
+              //   controller: quantityController,
+              //   decoration: InputDecoration(labelText: 'Quantity'),
+              //   keyboardType: TextInputType.number,
+              // ),
+              // TextField(
+              //   controller: entryPriceController,
+              //   decoration: InputDecoration(labelText: 'Entry Price'),
+              //   keyboardType: TextInputType.number,
+              // ),
+              TextField(
+                controller: currentPriceController,
+                decoration: InputDecoration(labelText: 'Current Price'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final newQuantity =
+                    int.tryParse(quantityController.text) ?? stock['quantity'];
+                final newEntryPrice =
+                    double.tryParse(entryPriceController.text) ??
+                        stock['entryPrice'];
+                final newCurrentPrice =
+                    double.tryParse(currentPriceController.text) ??
+                        stock['currentPrice'];
+
+                _updateStockInUser(
+                    stock, newQuantity, newEntryPrice, newCurrentPrice);
+
+                Navigator.pop(context);
+              },
+              child: Text('Save'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newQuantity = int.tryParse(quantityController.text) ?? stock['quantity'];
-              final newEntryPrice = double.tryParse(entryPriceController.text) ?? stock['entryPrice'];
-              final newCurrentPrice = double.tryParse(currentPriceController.text) ?? stock['currentPrice'];
-
-              _updateStockInUser(stock, newQuantity, newEntryPrice, newCurrentPrice);
-
-              Navigator.pop(context);
-            },
-            child: Text('Save'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   // Function to update a stock's quantity and entry price in Firestore
-  
-  Future<void> _updateStockInUser(Map<String, dynamic> stock, int newQuantity, double newEntryPrice, double newCurrentPrice) async {
-  final User? user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
 
-  final userDocRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
+  Future<void> _updateStockInUser(Map<String, dynamic> stock, int newQuantity,
+      double newEntryPrice, double newCurrentPrice) async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-  try {
+    final userDocRef =
+        FirebaseFirestore.instance.collection('users').doc(user!.uid);
+
+    try {
+      final snapshot = await userDocRef.get();
+      final userData = snapshot.data() as Map<String, dynamic>;
+      final List<dynamic> stocks = userData['stocks'] ?? [];
+
+      // Find the existing stock entry by stockId
+      Map<String, dynamic>? existingStock = stocks.firstWhere(
+          (s) => s['stockId'] == stock['stockId'],
+          orElse: () => null);
+
+      if (existingStock != null) {
+        // Calculate total quantity for all trades of the stock
+        int totalQuantity = 0;
+        double totalValue = 0.0;
+        for (var trade in stocks) {
+          if (trade['stockId'] == stock['stockId']) {
+            totalQuantity += trade['quantity'] as int; // Cast quantity to int
+            totalValue += (trade['quantity'] as int) *
+                trade['entryPrice']; // Cast quantity to int
+          }
+        }
+
+        // Calculate the new average price
+        double newAveragePrice = totalValue / totalQuantity;
+
+        // Remove old stock entry from Firestore
+        await userDocRef.update({
+          'stocks': FieldValue.arrayRemove([existingStock])
+        });
+
+        // Update stock data
+        existingStock['quantity'] = totalQuantity;
+        existingStock['entryPrice'] = newAveragePrice;
+        existingStock['currentPrice'] =
+            newCurrentPrice; // Update the current price with the new value
+
+        // Add updated stock entry back to Firestore
+        await userDocRef.update({
+          'stocks': FieldValue.arrayUnion([existingStock])
+        });
+
+        print("Stock updated successfully: $stock");
+      } else {
+        print("Stock not found: ${stock['stockId']}");
+      }
+    } catch (e) {
+      print("Error updating stock: $e");
+    }
+  }
+
+// Function to show a dialog to add a new stock
+
+  Future<void> _showAddStockDialog(BuildContext context) async {
+    final TextEditingController stockIdController = TextEditingController();
+    final TextEditingController quantityController = TextEditingController();
+    final TextEditingController entryPriceController = TextEditingController();
+    final TextEditingController currentPriceController =
+        TextEditingController(); // For current price input
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Add New Stock'),
+          content: Column(
+            children: [
+              TextField(
+                controller: stockIdController,
+                decoration: InputDecoration(labelText: 'Stock ID'),
+              ),
+              TextField(
+                controller: quantityController,
+                decoration: InputDecoration(labelText: 'Quantity'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: entryPriceController,
+                decoration: InputDecoration(labelText: 'Entry Price'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: currentPriceController,
+                decoration: InputDecoration(labelText: 'Current Price'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                String stockId = stockIdController.text;
+                int quantity = int.tryParse(quantityController.text) ?? 0;
+                double entryPrice =
+                    double.tryParse(entryPriceController.text) ?? 0.0;
+                double currentPrice =
+                    double.tryParse(currentPriceController.text) ?? 0.0;
+
+                if (stockId.isNotEmpty &&
+                    quantity > 0 &&
+                    entryPrice > 0 &&
+                    currentPrice > 0) {
+                  await _addStockToUser(
+                      stockId, quantity, entryPrice, currentPrice);
+                  Navigator.pop(context);
+                }
+              },
+              child: Text('Add Stock'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _addStockToUser(String stockId, int quantity, double entryPrice,
+      double currentPrice) async {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null || stockId.isEmpty || quantity <= 0) return;
+
+    final userDocRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+
     final snapshot = await userDocRef.get();
     final userData = snapshot.data() as Map<String, dynamic>;
     final List<dynamic> stocks = userData['stocks'] ?? [];
 
-    // Find the existing stock entry by stockId
-    Map<String, dynamic>? existingStock = stocks.firstWhere(
-      (s) => s['stockId'] == stock['stockId'], orElse: () => null);
+    // Find the existing stock
+    Map<String, dynamic>? existingStock = stocks
+        .firstWhere((stock) => stock['stockId'] == stockId, orElse: () => null);
 
     if (existingStock != null) {
-      // Calculate total quantity for all trades of the stock
-      int totalQuantity = 0;
-      double totalValue = 0.0;
-      for (var trade in stocks) {
-        if (trade['stockId'] == stock['stockId']) {
-          totalQuantity += trade['quantity'] as int;  // Cast quantity to int
-          totalValue += (trade['quantity'] as int) * trade['entryPrice'];  // Cast quantity to int
-        }
-      }
+      // Update stock data
+      int newTotalQuantity = existingStock['totalQuantity'] + quantity;
+      double newTotalValue =
+          existingStock['totalValue'] + (quantity * entryPrice);
+      double newAveragePrice = newTotalValue / newTotalQuantity;
 
-      // Calculate the new average price
-      double newAveragePrice = totalValue / totalQuantity;
-
-      // Remove old stock entry from Firestore
+      // Remove the old stock entry
       await userDocRef.update({
         'stocks': FieldValue.arrayRemove([existingStock])
       });
 
-      // Update stock data
-      existingStock['quantity'] = totalQuantity;
-      existingStock['entryPrice'] = newAveragePrice;
-      existingStock['currentPrice'] = newCurrentPrice; // Update the current price with the new value
+      // Add updated stock entry
+      existingStock['totalQuantity'] = newTotalQuantity;
+      existingStock['totalValue'] = newTotalValue;
+      existingStock['averagePrice'] = newAveragePrice;
+      existingStock['currentPrice'] = currentPrice; // Store current price
 
-      // Add updated stock entry back to Firestore
       await userDocRef.update({
         'stocks': FieldValue.arrayUnion([existingStock])
       });
-
-      print("Stock updated successfully: $stock");
     } else {
-      print("Stock not found: ${stock['stockId']}");
+      // Add new stock entry
+      await userDocRef.update({
+        'stocks': FieldValue.arrayUnion([
+          {
+            'stockId': stockId,
+            'quantity': quantity,
+            'entryPrice': entryPrice,
+            'totalQuantity': quantity,
+            'totalValue': quantity * entryPrice,
+            'averagePrice': entryPrice,
+            'currentPrice': currentPrice, // Set this dynamically
+          }
+        ])
+      });
     }
-  } catch (e) {
-    print("Error updating stock: $e");
-  }
-}
 
-
-
-
-// Function to show a dialog to add a new stock
-
-Future<void> _showAddStockDialog(BuildContext context) async {
-  final TextEditingController stockIdController = TextEditingController();
-  final TextEditingController quantityController = TextEditingController();
-  final TextEditingController entryPriceController = TextEditingController();
-  final TextEditingController currentPriceController =
-      TextEditingController(); // For current price input
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text('Add New Stock'),
-        content: Column(
-          children: [
-            TextField(
-              controller: stockIdController,
-              decoration: InputDecoration(labelText: 'Stock ID'),
-            ),
-            TextField(
-              controller: quantityController,
-              decoration: InputDecoration(labelText: 'Quantity'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: entryPriceController,
-              decoration: InputDecoration(labelText: 'Entry Price'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: currentPriceController,
-              decoration: InputDecoration(labelText: 'Current Price'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              String stockId = stockIdController.text;
-              int quantity = int.tryParse(quantityController.text) ?? 0;
-              double entryPrice =
-                  double.tryParse(entryPriceController.text) ?? 0.0;
-              double currentPrice =
-                  double.tryParse(currentPriceController.text) ?? 0.0;
-
-              if (stockId.isNotEmpty &&
-                  quantity > 0 &&
-                  entryPrice > 0 &&
-                  currentPrice > 0) {
-                // Show a loading indicator before adding stock
-                showDialog(
-                  context: context,
-                  barrierDismissible: false, // Prevent dismissing the loading dialog
-                  builder: (context) {
-                    return Center(child: CircularProgressIndicator());
-                  },
-                );
-
-                // Wait for the stock to be added
-                await _addStockToUser(
-                    stockId, quantity, entryPrice, currentPrice);
-
-                // Close the loading indicator
-                Navigator.pop(context);
-
-                // Now close the stock add dialog
-                Navigator.pop(context);
-              }
-            },
-            child: Text('Add Stock'),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-
-
-Future<void> _addStockToUser(String stockId, int quantity, double entryPrice,
-    double currentPrice) async {
-  final User? user = FirebaseAuth.instance.currentUser;
-  if (user == null || stockId.isEmpty || quantity <= 0) return;
-
-  final userDocRef =
-      FirebaseFirestore.instance.collection('users').doc(user.uid);
-
-  final snapshot = await userDocRef.get();
-  final userData = snapshot.data() as Map<String, dynamic>;
-  final List<dynamic> stocks = userData['stocks'] ?? [];
-
-  // Find the existing stock
-  Map<String, dynamic>? existingStock = stocks
-      .firstWhere((stock) => stock['stockId'] == stockId, orElse: () => null);
-
-  if (existingStock != null) {
-    // Update stock data
-    int newTotalQuantity = existingStock['totalQuantity'] + quantity;
-    double newTotalValue =
-        existingStock['totalValue'] + (quantity * entryPrice);
-    double newAveragePrice = newTotalValue / newTotalQuantity;
-
-    // Remove the old stock entry
-    await userDocRef.update({
-      'stocks': FieldValue.arrayRemove([existingStock])
-    });
-
-    // Add updated stock entry
-    existingStock['totalQuantity'] = newTotalQuantity;
-    existingStock['totalValue'] = newTotalValue;
-    existingStock['averagePrice'] = newAveragePrice;
-    existingStock['currentPrice'] = currentPrice; // Store current price
-
-    await userDocRef.update({
-      'stocks': FieldValue.arrayUnion([existingStock])
-    });
-  } else {
-    // Add new stock entry
-    await userDocRef.update({
-      'stocks': FieldValue.arrayUnion([
-        {
-          'stockId': stockId,
-          'quantity': quantity,
-          'entryPrice': entryPrice,
-          'totalQuantity': quantity,
-          'totalValue': quantity * entryPrice,
-          'averagePrice': entryPrice,
-          'currentPrice': currentPrice, // Set this dynamically
-        }
-      ])
-    });
+    // Log the trade
+    await _addTrade(user.uid, stockId, 'buy', quantity, entryPrice);
   }
 
-  // Log the trade
-  await _addTrade(user.uid, stockId, 'buy', quantity, entryPrice);
-}
-
-Future<void> _addTrade(String userId, String stockId, String tradeType,
-    int quantity, double entryPrice) async {
-  final tradeDocRef = FirebaseFirestore.instance.collection('trades').doc();
-  await tradeDocRef.set({
-    'userId': userId,
-    'stockId': stockId,
-    'tradeType': tradeType, // "buy" or "sell"
-    'quantity': quantity,
-    'entryPrice': entryPrice,
-    'timestamp': FieldValue.serverTimestamp(),
-  });
-}
+  Future<void> _addTrade(String userId, String stockId, String tradeType,
+      int quantity, double entryPrice) async {
+    final tradeDocRef = FirebaseFirestore.instance.collection('trades').doc();
+    await tradeDocRef.set({
+      'userId': userId,
+      'stockId': stockId,
+      'tradeType': tradeType, // "buy" or "sell"
+      'quantity': quantity,
+      'entryPrice': entryPrice,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
 }
