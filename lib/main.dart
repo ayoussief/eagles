@@ -23,6 +23,10 @@ Map<String, Map<String, String>> translations = {
     'home': 'Home',
     'news': 'News',
     'profile': 'Profile',
+    'your_stocks': 'Your Stocks',
+    'profit_or_loss': 'Profit/Loss',
+    'current_price': 'Current Price',
+    'average_price': 'Average Price',
   },
   
   'ar': {
@@ -63,6 +67,10 @@ Map<String, Map<String, String>> translations = {
     'profileUpdated': 'تم تحديث الملف الشخصي',
     'english': 'اللغة الإنجليزية',
     'arabic': 'اللغة العربية',
+    'profit_or_loss': 'الربح/الخسارة',
+    'current_price': 'السعر الحالي',
+    'average_price': 'متوسط ​​السعر',
+
     },
 
 };
