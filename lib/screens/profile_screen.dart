@@ -254,20 +254,20 @@ class ProfileScreen extends StatelessWidget {
                   SizedBox(
                     height: 20,
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              TradeHistoryScreen(userId: user!.uid),
-                        ),
-                      );
-                    },
-                    child: Text(translations[languageCode]
-                            ?['view_trade_history'] ??
-                        'View Trade History'),
-                  ),
+                  // ElevatedButton(
+                  //   onPressed: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(
+                  //         builder: (context) =>
+                  //             TradeHistoryScreen(userId: user!.uid),
+                  //       ),
+                  //     );
+                  //   },
+                  //   child: Text(translations[languageCode]
+                  //           ?['view_trade_history'] ??
+                  //       'View Trade History'),
+                  // ),
 
                   // Button to add a new stock
                   SizedBox(height: 20),
@@ -581,19 +581,19 @@ class ProfileScreen extends StatelessWidget {
     }
 
     // Log the trade
-    await _addTrade(user.uid, stockId, 'buy', quantity, entryPrice);
+    // await _addTrade(user.uid, stockId, 'buy', quantity, entryPrice);
   }
 
-  Future<void> _addTrade(String userId, String stockId, String tradeType,
-      int quantity, double entryPrice) async {
-    final tradeDocRef = FirebaseFirestore.instance.collection('trades').doc();
-    await tradeDocRef.set({
-      'userId': userId,
-      'stockId': stockId,
-      'tradeType': tradeType, // "buy" or "sell"
-      'quantity': quantity,
-      'entryPrice': entryPrice,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
+  // Future<void> _addTrade(String userId, String stockId, String tradeType,
+  //     int quantity, double entryPrice) async {
+  //   final tradeDocRef = FirebaseFirestore.instance.collection('trades').doc();
+  //   await tradeDocRef.set({
+  //     'userId': userId,
+  //     'stockId': stockId,
+  //     'tradeType': tradeType, // "buy" or "sell"
+  //     'quantity': quantity,
+  //     'entryPrice': entryPrice,
+  //     'timestamp': FieldValue.serverTimestamp(),
+  //   });
+  // }
 }
