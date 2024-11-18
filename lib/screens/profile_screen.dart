@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eagles/constants.dart';
 import 'package:eagles/main.dart';
+import 'package:eagles/screens/stock_detail_screen.dart';
 import 'package:eagles/screens/trade_history_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -161,6 +162,89 @@ class ProfileScreen extends StatelessWidget {
                   SizedBox(height: 10),
 
                   // If no stocks, show a message; else, display stock list
+                  // stocks.isNotEmpty
+                  //     ? ListView.builder(
+                  //         shrinkWrap:
+                  //             true, // Allow ListView to occupy only as much space as needed
+                  //         physics:
+                  //             NeverScrollableScrollPhysics(), // Disable ListView scrolling
+                  //         itemCount: stocks.length,
+                  //         itemBuilder: (context, index) {
+                  //           final stock = stocks[index];
+
+                  //           // Calculate profitability
+                  //           final int quantity = stock['totalQuantity'] ?? 0;
+                  //           final double averagePrice =
+                  //               stock['averagePrice'] ?? 0.0;
+                  //           final double currentPrice =
+                  //               stock['currentPrice'] ?? 0.0;
+                  //           final double totalInvested =
+                  //               averagePrice * quantity;
+                  //           final double currentValue = currentPrice * quantity;
+                  //           final double profitOrLoss =
+                  //               currentValue - totalInvested;
+                  //           final bool isProfitable = profitOrLoss > 0;
+
+                  //           return GestureDetector(
+                  //             onTap: () {
+                  //               // Navigate to StockDetailScreen
+                  //               Navigator.push(
+                  //                 context,
+                  //                 MaterialPageRoute(
+                  //                   builder: (context) =>
+                  //                       StockDetailScreen(stock: stock),
+                  //                 ),
+                  //               );
+                  //             },
+                  //             child: ListTile(
+                  //               title: Text(
+                  //                 stock['stockId'] ??
+                  //                     translations[languageCode]
+                  //                         ?['unknown_stock'] ??
+                  //                     'Unknown Stock',
+                  //               ),
+                  //               subtitle: Column(
+                  //                 crossAxisAlignment: CrossAxisAlignment.start,
+                  //                 children: [
+                  //                   Text(
+                  //                       '${translations[languageCode]?['quantity'] ?? 'Quantity'}: $quantity'),
+                  //                   Text(
+                  //                       '${translations[languageCode]?['average_price'] ?? 'Average Price'}: \$${averagePrice.toStringAsFixed(2)}'),
+                  //                   Text(
+                  //                       '${translations[languageCode]?['current_price'] ?? 'Current Price'}: \$${currentPrice.toStringAsFixed(2)}'),
+                  //                   Text(
+                  //                     '${translations[languageCode]?['profit_or_loss'] ?? 'Profit/Loss'}: ${isProfitable ? '+' : ''}\$${profitOrLoss.toStringAsFixed(2)}',
+                  //                     style: TextStyle(
+                  //                         color: isProfitable
+                  //                             ? Colors.green
+                  //                             : Colors.red),
+                  //                   ),
+                  //                 ],
+                  //               ),
+                  //               trailing: Row(
+                  //                 mainAxisSize: MainAxisSize.min,
+                  //                 children: [
+                  //                   IconButton(
+                  //                     icon: Icon(Icons.edit),
+                  //                     onPressed: () =>
+                  //                         _showEditStockDialog(context, stock),
+                  //                   ),
+                  //                   IconButton(
+                  //                     icon: Icon(Icons.delete),
+                  //                     onPressed: () =>
+                  //                         _removeStockFromUser(stock),
+                  //                   ),
+                  //                 ],
+                  //               ),
+                  //             ),
+                  //           );
+                  //         },
+                  //       )
+                  //     : Text(
+                  //         translations[languageCode]?['no_stocks_added'] ??
+                  //             'No stocks added yet.',
+                  //       ),
+                  // If no stocks, show a message; else, display stock list
                   stocks.isNotEmpty
                       ? ListView.builder(
                           shrinkWrap:
@@ -175,9 +259,8 @@ class ProfileScreen extends StatelessWidget {
                             final int quantity = stock['totalQuantity'] ?? 0;
                             final double averagePrice =
                                 stock['averagePrice'] ?? 0.0;
-                            final double currentPrice = stock['currentPrice'] ??
-                                0.0; // This is the manually entered value
-                            0.0; // Assume you add current price later
+                            final double currentPrice =
+                                stock['currentPrice'] ?? 0.0;
                             final double totalInvested =
                                 averagePrice * quantity;
                             final double currentValue = currentPrice * quantity;
@@ -185,49 +268,101 @@ class ProfileScreen extends StatelessWidget {
                                 currentValue - totalInvested;
                             final bool isProfitable = profitOrLoss > 0;
 
-                            return ListTile(
-                              title: Text(stock['stockId'] ??
-                                  translations[languageCode]
-                                      ?['unknown_stock'] ??
-                                  'Unknown Stock'),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                      '${translations[languageCode]?['quantity'] ?? 'Quantity'}: $quantity'),
-                                  Text(
-                                      '${translations[languageCode]?['average_price'] ?? 'Average Price'}: \$${averagePrice.toStringAsFixed(2)}'),
-                                  Text(
-                                      '${translations[languageCode]?['current_price'] ?? 'Current Price'}: \$${currentPrice.toStringAsFixed(2)}'),
-                                  Text(
-                                    '${translations[languageCode]?['profit_or_loss'] ?? 'Profit/Loss'}: ${isProfitable ? '+' : ''}\$${profitOrLoss.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                        color: isProfitable
-                                            ? Colors.green
-                                            : Colors.red),
+                            return GestureDetector(
+                              onTap: () {
+                                // Navigate to StockDetailScreen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        StockDetailScreen(stock: stock),
                                   ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.edit),
-                                    onPressed: () =>
-                                        _showEditStockDialog(context, stock),
+                                );
+                              },
+                              child: Card(
+                                margin: EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 16),
+                                elevation:
+                                    5, // Add some elevation for a shadow effect
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                      12), // Rounded corners
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // Stock name
+                                      Text(
+                                        stock['stockId'] ??
+                                            translations[languageCode]
+                                                ?['unknown_stock'] ??
+                                            'Unknown Stock',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 8),
+                                      // Quantity
+                                      Text(
+                                        '${translations[languageCode]?['quantity'] ?? 'Quantity'}: $quantity',
+                                      ),
+                                      // Average Price
+                                      Text(
+                                        '${translations[languageCode]?['average_price'] ?? 'Average Price'}: \$${averagePrice.toStringAsFixed(2)}',
+                                      ),
+                                      // Current Price
+                                      Text(
+                                        '${translations[languageCode]?['current_price'] ?? 'Current Price'}: \$${currentPrice.toStringAsFixed(2)}',
+                                      ),
+                                      // Profit/Loss
+                                      Text(
+                                        '${translations[languageCode]?['profit_or_loss'] ?? 'Profit/Loss'}: ${isProfitable ? '+' : ''}\$${profitOrLoss.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: isProfitable
+                                              ? Colors.green
+                                              : Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 16),
+                                      // Row for Edit and Delete buttons
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(Icons.edit),
+                                            onPressed: () =>
+                                                _showEditStockDialog(
+                                                    context, stock),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.delete),
+                                            onPressed: () =>
+                                                _removeStockFromUser(stock),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  IconButton(
-                                    icon: Icon(Icons.delete),
-                                    onPressed: () =>
-                                        _removeStockFromUser(stock),
-                                  ),
-                                ],
+                                ),
                               ),
                             );
                           },
                         )
-                      : Text(translations[languageCode]?['no_stocks_added'] ??
-                          'No stocks added yet.'),
+                      : Center(
+                          child: Text(
+                            translations[languageCode]?['no_stocks_added'] ??
+                                'No stocks added yet.',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+
                   SizedBox(
                     height: 20,
                   ),
@@ -254,21 +389,6 @@ class ProfileScreen extends StatelessWidget {
                   SizedBox(
                     height: 20,
                   ),
-                  // ElevatedButton(
-                  //   onPressed: () {
-                  //     Navigator.push(
-                  //       context,
-                  //       MaterialPageRoute(
-                  //         builder: (context) =>
-                  //             TradeHistoryScreen(userId: user!.uid),
-                  //       ),
-                  //     );
-                  //   },
-                  //   child: Text(translations[languageCode]
-                  //           ?['view_trade_history'] ??
-                  //       'View Trade History'),
-                  // ),
-
                   // Button to add a new stock
                   SizedBox(height: 20),
                   ElevatedButton(
@@ -501,6 +621,10 @@ class ProfileScreen extends StatelessWidget {
           ),
           actions: [
             TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+            TextButton(
               onPressed: () async {
                 String stockId = stockIdController.text;
                 int quantity = int.tryParse(quantityController.text) ?? 0;
@@ -579,21 +703,5 @@ class ProfileScreen extends StatelessWidget {
         ])
       });
     }
-
-    // Log the trade
-    // await _addTrade(user.uid, stockId, 'buy', quantity, entryPrice);
   }
-
-  // Future<void> _addTrade(String userId, String stockId, String tradeType,
-  //     int quantity, double entryPrice) async {
-  //   final tradeDocRef = FirebaseFirestore.instance.collection('trades').doc();
-  //   await tradeDocRef.set({
-  //     'userId': userId,
-  //     'stockId': stockId,
-  //     'tradeType': tradeType, // "buy" or "sell"
-  //     'quantity': quantity,
-  //     'entryPrice': entryPrice,
-  //     'timestamp': FieldValue.serverTimestamp(),
-  //   });
-  // }
 }
