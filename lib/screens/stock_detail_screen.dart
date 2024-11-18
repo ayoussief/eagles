@@ -37,48 +37,119 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final stockId = stock['stockId'];
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Stock Details'),
+        title: Text('Stock Details - $stockId'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Stock ID: ${stock['stockId']}',
-                style: TextStyle(fontSize: 18)),
-            SizedBox(height: 8),
-            Text('Total Quantity: ${stock['totalQuantity']}',
-                style: TextStyle(fontSize: 16)),
-            SizedBox(height: 8),
-            Text('Average Price: \$${stock['averagePrice'].toStringAsFixed(2)}',
-                style: TextStyle(fontSize: 16)),
-            SizedBox(height: 8),
-            Text('Current Price: \$${stock['currentPrice'].toStringAsFixed(2)}',
-                style: TextStyle(fontSize: 16)),
-            SizedBox(height: 16),
-            Row(
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          // Extract stock data from the user's stocks array
+          final userData = snapshot.data!.data() as Map<String, dynamic>;
+          final List<dynamic> stocks = userData['stocks'] ?? [];
+          final stockData = stocks.firstWhere(
+            (item) => item['stockId'] == stockId,
+            orElse: () => null,
+          );
+
+          if (stockData == null) {
+            return Center(child: Text('Stock not found.'));
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _showAddStockDialog(context),
-                    child: Text('Add More Stocks'),
-                  ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _showRemoveStockDialog(context),
-                    child: Text('Sell Some Stocks'),
+                Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Stock ID: ${stockData['stockId']}',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        Divider(),
+                        Text(
+                          'Total Quantity: ${stockData['totalQuantity']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Average Price: \$${stockData['averagePrice'].toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Current Price: \$${stockData['currentPrice'].toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Text(
+                          'Profit/Loss: ${_calculateProfitLoss(stockData)}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: _isProfit(stockData)
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green),
+                                onPressed: () => _showAddStockDialog(context),
+                                child: Text('Add More'),
+                              ),
+                            ),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red),
+                                onPressed: () =>
+                                    _showRemoveStockDialog(context),
+                                child: Text('Sell Some'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+// Helper to calculate profit/loss
+  String _calculateProfitLoss(Map<String, dynamic> stockData) {
+    double invested = stockData['averagePrice'] * stockData['totalQuantity'];
+    double current = stockData['currentPrice'] * stockData['totalQuantity'];
+    double profitOrLoss = current - invested;
+    return '\$${profitOrLoss.toStringAsFixed(2)}';
+  }
+
+// Helper to check if it's a profit
+  bool _isProfit(Map<String, dynamic> stockData) {
+    double invested = stockData['averagePrice'] * stockData['totalQuantity'];
+    double current = stockData['currentPrice'] * stockData['totalQuantity'];
+    return current > invested;
   }
 
   void _showAddStockDialog(BuildContext context) {
@@ -127,7 +198,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
 
                 if (quantity > 0 && entryPrice > 0 && currentPrice > 0) {
                   await _updateStockQuantity(
-                      stock['stockId'], quantity, entryPrice, currentPrice,
+                      stock, quantity, entryPrice, currentPrice,
                       isAdding: true);
                   _updateLocalStock(quantity, entryPrice, currentPrice, true);
                   Navigator.pop(context);
@@ -178,11 +249,11 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                     double.tryParse(currentPriceController.text) ?? 0.0;
 
                 if (quantity > 0 && currentPrice > 0) {
-                  await _updateStockQuantity(stock['stockId'], quantity,
-                      stock['averagePrice'], currentPrice,
+                  await _updateStockQuantity(
+                      stock, -quantity, stock['averagePrice'], currentPrice,
                       isAdding: false);
                   _updateLocalStock(
-                      quantity, stock['averagePrice'], currentPrice, false);
+                      -quantity, stock['averagePrice'], currentPrice, false);
                   Navigator.pop(context);
                 }
               },
@@ -196,67 +267,45 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
 }
 
 Future<void> _updateStockQuantity(
-    String stockId, int quantity, double entryPrice, double currentPrice,
-    {required bool isAdding}) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return;
+  Map<String, dynamic> stock,
+  int quantityDelta,
+  double entryPrice,
+  double currentPrice, {
+  required bool isAdding,
+}) async {
+  final userId = FirebaseAuth.instance.currentUser?.uid;
+  if (userId == null) return;
 
-  final userDocRef =
-      FirebaseFirestore.instance.collection('users').doc(user.uid);
+  final userDoc = FirebaseFirestore.instance.collection('users').doc(userId);
 
-  try {
-    final snapshot = await userDocRef.get();
-    if (!snapshot.exists) {
-      print('User document does not exist.');
-      return;
-    }
+  // Fetch user data
+  final snapshot = await userDoc.get();
+  final userData = snapshot.data() as Map<String, dynamic>;
+  final stocks = userData['stocks'] as List<dynamic>;
 
-    final userData = snapshot.data() as Map<String, dynamic>;
-    final List<dynamic> stocks = userData['stocks'] ?? [];
+  // Find the stock
+  final stockIndex =
+      stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
+  if (stockIndex == -1) return;
 
-    // Find the stock entry to update
-    int stockIndex = stocks.indexWhere((s) => s['stockId'] == stockId);
-    if (stockIndex == -1) {
-      print('Stock with ID $stockId not found.');
-      return;
-    }
+  final stockData = stocks[stockIndex];
+  stockData['totalQuantity'] += quantityDelta;
 
-    Map<String, dynamic> stock = Map<String, dynamic>.from(stocks[stockIndex]);
-
-    int currentQuantity = stock['totalQuantity'] ?? 0;
-    double currentTotalValue = stock['averagePrice'] * currentQuantity;
-
-    if (!isAdding && quantity > currentQuantity) {
-      print('Error: Attempting to remove more stocks than available.');
-      return;
-    }
-
-    // Calculate updated values
-    final int newQuantity =
-        isAdding ? currentQuantity + quantity : currentQuantity - quantity;
-
-    final double updatedTotalValue = isAdding
-        ? currentTotalValue + (quantity * entryPrice)
-        : currentTotalValue - (quantity * stock['averagePrice']);
-
-    final double newAveragePrice =
-        newQuantity > 0 ? updatedTotalValue / newQuantity : 0.0;
-
-    // Update stock fields
-    stock['totalQuantity'] = newQuantity;
-    stock['totalValue'] = updatedTotalValue;
-    stock['averagePrice'] = newAveragePrice;
-    stock['currentPrice'] = currentPrice;
-
-    // Replace the stock in the list
-    stocks[stockIndex] = stock;
-
-    // Update Firestore
-    await userDocRef.update({'stocks': stocks});
-
-    print(
-        '${isAdding ? 'Added' : 'Removed'} $quantity stocks. New total: $newQuantity');
-  } catch (e) {
-    print('Error updating stock quantity: $e');
+  // Recalculate the average price
+  if (isAdding) {
+    // If adding, update the average price accordingly
+    stockData['averagePrice'] =
+        ((stockData['averagePrice'] * stockData['totalQuantity']) +
+                (entryPrice * quantityDelta)) /
+            stockData['totalQuantity'];
+  } else {
+    // If removing, simply update the total quantity without changing average price
+    stockData['averagePrice'] = stockData['averagePrice'];
   }
+
+  stockData['currentPrice'] = currentPrice;
+
+  // Update Firestore
+  stocks[stockIndex] = stockData;
+  await userDoc.update({'stocks': stocks});
 }
