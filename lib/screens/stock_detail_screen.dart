@@ -41,27 +41,33 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final stockId = stock['stockId'];
 
+    // Stream for user document
+    final userStream =
+        FirebaseFirestore.instance.collection('users').doc(userId).snapshots();
+
+    // Function to extract stock data
+    Map<String, dynamic>? getStockData(Map<String, dynamic> userData) {
+      final List<dynamic> stocks = userData['stocks'] ?? [];
+      return stocks.firstWhere(
+        (item) => item['stockId'] == stockId,
+        orElse: () => null,
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Stock Details - $stockId'),
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .snapshots(),
+        stream: userStream,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return Center(child: CircularProgressIndicator());
           }
 
-          // Extract stock data from the user's stocks array
+          // Extract user data and stock data
           final userData = snapshot.data!.data() as Map<String, dynamic>;
-          final List<dynamic> stocks = userData['stocks'] ?? [];
-          final stockData = stocks.firstWhere(
-            (item) => item['stockId'] == stockId,
-            orElse: () => null,
-          );
+          final stockData = getStockData(userData);
 
           if (stockData == null) {
             return Center(child: Text('Stock not found.'));
@@ -131,98 +137,74 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   ),
                 ),
                 Expanded(
-                  child: StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(FirebaseAuth.instance.currentUser?.uid)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-
-                      final userData =
-                          snapshot.data!.data() as Map<String, dynamic>;
-                      final List<dynamic> stocks = userData['stocks'] ?? [];
-                      final stockData = stocks.firstWhere(
-                        (item) => item['stockId'] == stock['stockId'],
-                        orElse: () => null,
-                      );
-
-                      if (stockData == null || stockData['history'] == null) {
-                        return Center(
+                  child: stockData['history'] == null
+                      ? Center(
                           child: Text(
                             'No history available for this stock.',
                             style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
-                        );
-                      }
+                        )
+                      : ListView.builder(
+                          itemCount: stockData['history'].length,
+                          itemBuilder: (context, index) {
+                            final entry = stockData['history'][index];
+                            final action =
+                                entry['action'] == 'add' ? 'Added' : 'Removed';
+                            final timestamp = DateFormat('yyyy-MM-dd HH:mm')
+                                .format(DateTime.parse(entry['timestamp']));
 
-                      final List<dynamic> history = stockData['history'];
-
-                      return ListView.builder(
-                        itemCount: history.length,
-                        itemBuilder: (context, index) {
-                          final entry = history[index];
-                          final action =
-                              entry['action'] == 'add' ? 'Added' : 'Removed';
-                          final timestamp = DateFormat('yyyy-MM-dd HH:mm')
-                              .format(DateTime.parse(entry['timestamp']));
-
-                          return Card(
-                            elevation: 4,
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '$action ${entry['quantity']} stocks',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: entry['action'] == 'add'
-                                              ? Colors.green
-                                              : Colors.red,
-                                        ),
-                                      ),
-                                      Spacer(),
-                                      Text(
-                                        timestamp,
-                                        style: TextStyle(
-                                            fontSize: 14, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'Entry Price: \$${entry["entryPrice"].toStringAsFixed(2)}',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  Text(
-                                    'Average Price: \$${entry["averagePrice"].toStringAsFixed(2)}',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  Text(
-                                    'Current Price: \$${entry["currentPrice"].toStringAsFixed(2)}',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ],
+                            return Card(
+                              elevation: 4,
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 8, horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                )
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '$action ${entry['quantity']} stocks',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: entry['action'] == 'add'
+                                                ? Colors.green
+                                                : Colors.red,
+                                          ),
+                                        ),
+                                        Spacer(),
+                                        Text(
+                                          timestamp,
+                                          style: TextStyle(
+                                              fontSize: 14, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Entry Price: \$${entry["entryPrice"].toStringAsFixed(2)}',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    Text(
+                                      'Average Price: \$${entry["averagePrice"].toStringAsFixed(2)}',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                    Text(
+                                      'Current Price: \$${entry["currentPrice"].toStringAsFixed(2)}',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
               ],
             ),
           );
