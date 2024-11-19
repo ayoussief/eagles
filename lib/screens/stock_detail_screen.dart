@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class StockDetailScreen extends StatefulWidget {
   final Map<String, dynamic> stock;
@@ -129,6 +130,99 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                     ),
                   ),
                 ),
+                Expanded(
+                  child: StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(FirebaseAuth.instance.currentUser?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+
+                      final userData =
+                          snapshot.data!.data() as Map<String, dynamic>;
+                      final List<dynamic> stocks = userData['stocks'] ?? [];
+                      final stockData = stocks.firstWhere(
+                        (item) => item['stockId'] == stock['stockId'],
+                        orElse: () => null,
+                      );
+
+                      if (stockData == null || stockData['history'] == null) {
+                        return Center(
+                          child: Text(
+                            'No history available for this stock.',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                        );
+                      }
+
+                      final List<dynamic> history = stockData['history'];
+
+                      return ListView.builder(
+                        itemCount: history.length,
+                        itemBuilder: (context, index) {
+                          final entry = history[index];
+                          final action =
+                              entry['action'] == 'add' ? 'Added' : 'Removed';
+                          final timestamp = DateFormat('yyyy-MM-dd HH:mm')
+                              .format(DateTime.parse(entry['timestamp']));
+
+                          return Card(
+                            elevation: 4,
+                            margin: const EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$action ${entry['quantity']} stocks',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: entry['action'] == 'add'
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                      ),
+                                      Spacer(),
+                                      Text(
+                                        timestamp,
+                                        style: TextStyle(
+                                            fontSize: 14, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Entry Price: \$${entry["entryPrice"].toStringAsFixed(2)}',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  Text(
+                                    'Average Price: \$${entry["averagePrice"].toStringAsFixed(2)}',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  Text(
+                                    'Current Price: \$${entry["currentPrice"].toStringAsFixed(2)}',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                )
               ],
             ),
           );
@@ -266,13 +360,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   }
 }
 
-Future<void> _updateStockQuantity(
-  Map<String, dynamic> stock,
-  int quantityDelta,
-  double entryPrice,
-  double currentPrice, {
-  required bool isAdding,
-}) async {
+Future<void> _updateStockQuantity(Map<String, dynamic> stock, int quantityDelta,
+    double entryPrice, double currentPrice,
+    {required bool isAdding}) async {
   final userId = FirebaseAuth.instance.currentUser?.uid;
   if (userId == null) return;
 
@@ -283,7 +373,6 @@ Future<void> _updateStockQuantity(
   final userData = snapshot.data() as Map<String, dynamic>;
   final stocks = userData['stocks'] as List<dynamic>;
 
-  // Find the stock
   final stockIndex =
       stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
   if (stockIndex == -1) return;
@@ -291,21 +380,49 @@ Future<void> _updateStockQuantity(
   final stockData = stocks[stockIndex];
   stockData['totalQuantity'] += quantityDelta;
 
-  // Recalculate the average price
   if (isAdding) {
-    // If adding, update the average price accordingly
     stockData['averagePrice'] =
         ((stockData['averagePrice'] * stockData['totalQuantity']) +
                 (entryPrice * quantityDelta)) /
             stockData['totalQuantity'];
-  } else {
-    // If removing, simply update the total quantity without changing average price
-    stockData['averagePrice'] = stockData['averagePrice'];
   }
-
   stockData['currentPrice'] = currentPrice;
+
+  // Add entry to the stock's history
+  final stockHistoryEntry = {
+    "action": isAdding ? "add" : "remove",
+    "quantity": quantityDelta.abs(),
+    "entryPrice": entryPrice,
+    "averagePrice": stockData['averagePrice'],
+    "currentPrice": currentPrice,
+    "timestamp": DateTime.now().toIso8601String(),
+  };
+
+  if (stockData['history'] == null) {
+    stockData['history'] = [];
+  }
+  stockData['history'].add(stockHistoryEntry);
+
+  // Add entry to the user's global history
+  final globalHistoryEntry = {
+    "stockId": stock['stockId'],
+    "action": isAdding ? "add" : "remove",
+    "quantity": quantityDelta.abs(),
+    "entryPrice": entryPrice,
+    "averagePrice": stockData['averagePrice'],
+    "currentPrice": currentPrice,
+    "timestamp": DateTime.now().toIso8601String(),
+  };
+
+  if (userData['globalHistory'] == null) {
+    userData['globalHistory'] = [];
+  }
+  userData['globalHistory'].add(globalHistoryEntry);
 
   // Update Firestore
   stocks[stockIndex] = stockData;
-  await userDoc.update({'stocks': stocks});
+  await userDoc.update({
+    'stocks': stocks,
+    'globalHistory': userData['globalHistory'],
+  });
 }
