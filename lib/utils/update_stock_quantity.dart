@@ -22,12 +22,20 @@ Future<void> _updateStockQuantity(
   if (stockIndex == -1) return;
 
   final stockData = stocks[stockIndex];
+
+  // Save the current total quantity
+  final previousTotalQuantity = stockData['totalQuantity'];
+
+  // Update the total quantity
   stockData['totalQuantity'] += quantityDelta;
 
   if (isAdding) {
+    // Recalculate the average price
     stockData['averagePrice'] = 
-        ((stockData['averagePrice'] * stockData['totalQuantity']) + (entryPrice * quantityDelta)) / stockData['totalQuantity'];
+        ((stockData['averagePrice'] * previousTotalQuantity) + (entryPrice * quantityDelta)) / stockData['totalQuantity'];
   }
+
+  // Update the current price
   stockData['currentPrice'] = currentPrice;
 
   // Add entry to the stock's history

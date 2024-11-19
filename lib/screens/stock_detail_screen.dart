@@ -348,9 +348,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   }
 }
 
-Future<void> _updateStockQuantity(Map<String, dynamic> stock, int quantityDelta,
-    double entryPrice, double currentPrice,
-    {required bool isAdding}) async {
+Future<void> _updateStockQuantity(
+  Map<String, dynamic> stock,
+  int quantityDelta,
+  double entryPrice,
+  double currentPrice,
+  {required bool isAdding}) async {
+  
   final userId = FirebaseAuth.instance.currentUser?.uid;
   if (userId == null) return;
 
@@ -361,19 +365,24 @@ Future<void> _updateStockQuantity(Map<String, dynamic> stock, int quantityDelta,
   final userData = snapshot.data() as Map<String, dynamic>;
   final stocks = userData['stocks'] as List<dynamic>;
 
-  final stockIndex =
-      stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
+  final stockIndex = stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
   if (stockIndex == -1) return;
 
   final stockData = stocks[stockIndex];
+
+  // Save the current total quantity
+  final previousTotalQuantity = stockData['totalQuantity'];
+
+  // Update the total quantity
   stockData['totalQuantity'] += quantityDelta;
 
   if (isAdding) {
-    stockData['averagePrice'] =
-        ((stockData['averagePrice'] * stockData['totalQuantity']) +
-                (entryPrice * quantityDelta)) /
-            stockData['totalQuantity'];
+    // Recalculate the average price
+    stockData['averagePrice'] = 
+        ((stockData['averagePrice'] * previousTotalQuantity) + (entryPrice * quantityDelta)) / stockData['totalQuantity'];
   }
+
+  // Update the current price
   stockData['currentPrice'] = currentPrice;
 
   // Add entry to the stock's history
