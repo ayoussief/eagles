@@ -147,6 +147,12 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                       : ListView.builder(
                           itemCount: stockData['history'].length,
                           itemBuilder: (context, index) {
+                            // Sort history in descending order of timestamp
+                            final history = List.from(stockData['history']);
+                            history.sort((a, b) =>
+                                DateTime.parse(b['timestamp'])
+                                    .compareTo(DateTime.parse(a['timestamp'])));
+
                             final entry = stockData['history'][index];
                             final action =
                                 entry['action'] == 'add' ? 'Added' : 'Removed';

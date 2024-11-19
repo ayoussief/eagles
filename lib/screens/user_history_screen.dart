@@ -34,6 +34,10 @@ class UserHistoryScreen extends StatelessWidget {
             );
           }
 
+          // Sort the history by timestamp in descending order
+          globalHistory.sort((a, b) =>
+              DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
+
           return ListView.builder(
             itemCount: globalHistory.length,
             itemBuilder: (context, index) {
