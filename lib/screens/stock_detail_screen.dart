@@ -137,80 +137,89 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   ),
                 ),
                 Expanded(
-                  child: stockData['history'] == null
+                  child: stockData['history'] == null ||
+                          stockData['history'].isEmpty
                       ? Center(
                           child: Text(
                             'No history available for this stock.',
                             style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                         )
-                      : ListView.builder(
-                          itemCount: stockData['history'].length,
-                          itemBuilder: (context, index) {
-                            // Sort history in descending order of timestamp
-                            final history = List.from(stockData['history']);
-                            history.sort((a, b) =>
+                      : Builder(
+                          builder: (context) {
+                            // Create a sorted copy of the history in descending order
+                            final sortedHistory =
+                                List.from(stockData['history']);
+                            sortedHistory.sort((a, b) =>
                                 DateTime.parse(b['timestamp'])
                                     .compareTo(DateTime.parse(a['timestamp'])));
 
-                            final entry = stockData['history'][index];
-                            final action =
-                                entry['action'] == 'add' ? 'Added' : 'Removed';
-                            final timestamp = DateFormat('yyyy-MM-dd HH:mm')
-                                .format(DateTime.parse(entry['timestamp']));
+                            return ListView.builder(
+                              itemCount: sortedHistory.length,
+                              itemBuilder: (context, index) {
+                                final entry = sortedHistory[index];
+                                final action = entry['action'] == 'add'
+                                    ? 'Added'
+                                    : 'Removed';
+                                final timestamp = DateFormat('yyyy-MM-dd HH:mm')
+                                    .format(DateTime.parse(entry['timestamp']));
 
-                            return Card(
-                              elevation: 4,
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8, horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+                                return Card(
+                                  elevation: 4,
+                                  margin: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          '$action ${entry['quantity']} stocks',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: entry['action'] == 'add'
-                                                ? Colors.green
-                                                : Colors.red,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              '$action ${entry['quantity']} stocks',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: entry['action'] == 'add'
+                                                    ? Colors.green
+                                                    : Colors.red,
+                                              ),
+                                            ),
+                                            Spacer(),
+                                            Text(
+                                              timestamp,
+                                              style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey),
+                                            ),
+                                          ],
                                         ),
-                                        Spacer(),
+                                        SizedBox(height: 8),
                                         Text(
-                                          timestamp,
-                                          style: TextStyle(
-                                              fontSize: 14, color: Colors.grey),
+                                          'Entry Price: \$${entry["entryPrice"].toStringAsFixed(2)}',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        Text(
+                                          'Average Price: \$${entry["averagePrice"].toStringAsFixed(2)}',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        Text(
+                                          'Current Price: \$${entry["currentPrice"].toStringAsFixed(2)}',
+                                          style: TextStyle(fontSize: 16),
                                         ),
                                       ],
                                     ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Entry Price: \$${entry["entryPrice"].toStringAsFixed(2)}',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    Text(
-                                      'Average Price: \$${entry["averagePrice"].toStringAsFixed(2)}',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                    Text(
-                                      'Current Price: \$${entry["currentPrice"].toStringAsFixed(2)}',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                );
+                              },
                             );
                           },
                         ),
-                ),
+                )
               ],
             ),
           );
@@ -348,13 +357,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
   }
 }
 
-Future<void> _updateStockQuantity(
-  Map<String, dynamic> stock,
-  int quantityDelta,
-  double entryPrice,
-  double currentPrice,
-  {required bool isAdding}) async {
-  
+Future<void> _updateStockQuantity(Map<String, dynamic> stock, int quantityDelta,
+    double entryPrice, double currentPrice,
+    {required bool isAdding}) async {
   final userId = FirebaseAuth.instance.currentUser?.uid;
   if (userId == null) return;
 
@@ -365,7 +370,8 @@ Future<void> _updateStockQuantity(
   final userData = snapshot.data() as Map<String, dynamic>;
   final stocks = userData['stocks'] as List<dynamic>;
 
-  final stockIndex = stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
+  final stockIndex =
+      stocks.indexWhere((item) => item['stockId'] == stock['stockId']);
   if (stockIndex == -1) return;
 
   final stockData = stocks[stockIndex];
@@ -378,8 +384,10 @@ Future<void> _updateStockQuantity(
 
   if (isAdding) {
     // Recalculate the average price
-    stockData['averagePrice'] = 
-        ((stockData['averagePrice'] * previousTotalQuantity) + (entryPrice * quantityDelta)) / stockData['totalQuantity'];
+    stockData['averagePrice'] =
+        ((stockData['averagePrice'] * previousTotalQuantity) +
+                (entryPrice * quantityDelta)) /
+            stockData['totalQuantity'];
   }
 
   // Update the current price
