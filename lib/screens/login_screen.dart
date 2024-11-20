@@ -3,6 +3,7 @@ import 'package:eagles/providers/language_provider.dart';
 import 'package:eagles/providers/modal_hud.dart';
 import 'package:eagles/screens/homepage_screen.dart';
 import 'package:eagles/screens/signup_screen.dart';
+import 'package:eagles/screens/support_screen.dart';
 import 'package:eagles/services/auth.dart';
 import 'package:eagles/widgets/custom_textfield.dart';
 import 'package:flutter/material.dart';
@@ -111,6 +112,29 @@ class LoginScreen extends StatelessWidget {
                         final userId = userCredential.user?.uid;
                         if (userId != null) {
                           await _loadPreferredLanguage(context, userId);
+
+                          // Fetch user data from Firestore
+                          final userDoc = await _firestore
+                              .collection('users')
+                              .doc(userId)
+                              .get();
+                          final userData = userDoc.data();
+
+                          if (userData != null) {
+                            final subscriptionEnd = userData['subscriptionEnd'];
+                            if (subscriptionEnd == null ||
+                                (subscriptionEnd is Timestamp &&
+                                    subscriptionEnd
+                                        .toDate()
+                                        .isBefore(DateTime.now()))) {
+                              // Redirect to support page if no subscription or subscription has ended
+                              modalhud.changeisLoading(false);
+                              Navigator.pushReplacementNamed(
+                                  context, SupportScreen.id);
+                              return;
+                            }
+                          }
+
                           modalhud.changeisLoading(false);
 
                           // Show a SnackBar message indicating successful login

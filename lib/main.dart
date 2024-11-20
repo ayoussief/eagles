@@ -3,6 +3,7 @@ import 'package:eagles/providers/modal_hud.dart';
 import 'package:eagles/screens/homepage_screen.dart';
 import 'package:eagles/screens/signup_screen.dart';
 import 'package:eagles/screens/login_screen.dart';
+import 'package:eagles/screens/support_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +29,6 @@ Map<String, Map<String, String>> translations = {
     'current_price': 'Current Price',
     'average_price': 'Average Price',
   },
-  
   'ar': {
     'settings': 'الاعدادات',
     'saveChanges': 'حفظ التغييرات',
@@ -70,9 +70,7 @@ Map<String, Map<String, String>> translations = {
     'profit_or_loss': 'الربح/الخسارة',
     'current_price': 'السعر الحالي',
     'average_price': 'متوسط ​​السعر',
-
-    },
-
+  },
 };
 
 void main() async {
@@ -93,7 +91,10 @@ void main() async {
 
   String userPreferredLanguage = 'en';
   if (user != null) {
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
     userPreferredLanguage = userDoc['preferredLanguage'] ?? 'en';
   }
 
@@ -101,7 +102,8 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ModalHud()),
-        ChangeNotifierProvider(create: (_) => LanguageProvider(userPreferredLanguage)),
+        ChangeNotifierProvider(
+            create: (_) => LanguageProvider(userPreferredLanguage)),
       ],
       child: const MyApp(),
     ),
@@ -126,6 +128,8 @@ class MyApp extends StatelessWidget {
         HomePageScreen.id: (context) => HomePageScreen(
               languageCode: languageProvider.locale.languageCode,
             ),
+        SupportScreen.id: (context) =>
+            SupportScreen(), // Register the SupportScreen
       },
       builder: (context, child) {
         return LocalizationsWrapper(
@@ -160,4 +164,3 @@ class LocalizationsWrapper extends StatelessWidget {
     );
   }
 }
-
