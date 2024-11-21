@@ -121,17 +121,23 @@ class LoginScreen extends StatelessWidget {
                           final userData = userDoc.data();
 
                           if (userData != null) {
-                            final subscriptionEnd = userData['subscriptionEnd'];
-                            if (subscriptionEnd == null ||
-                                (subscriptionEnd is Timestamp &&
-                                    subscriptionEnd
-                                        .toDate()
-                                        .isBefore(DateTime.now()))) {
-                              // Redirect to support page if no subscription or subscription has ended
-                              modalhud.changeisLoading(false);
-                              Navigator.pushReplacementNamed(
-                                  context, SupportScreen.id);
-                              return;
+                            final String role =
+                                userData['role'] ?? 'user'; // Default to 'user'
+                            final Timestamp? subscriptionEnd =
+                                userData['subscriptionEnd'];
+
+                            if (role != 'admin') {
+                              // Only check subscription if the user is not an admin
+                              if (subscriptionEnd == null ||
+                                  subscriptionEnd
+                                      .toDate()
+                                      .isBefore(DateTime.now())) {
+                                modalhud.changeisLoading(false);
+                                // Redirect to support page
+                                Navigator.pushReplacementNamed(
+                                    context, SupportScreen.id);
+                                return;
+                              }
                             }
                           }
 

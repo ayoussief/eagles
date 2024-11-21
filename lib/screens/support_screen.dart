@@ -63,22 +63,14 @@ class SupportScreen extends StatelessWidget {
                 //launchUrl(_url); // You'll need to import 'url_launcher' package to use this
               },
               child: const Text(
-                'Contact Support via WhatsApp',
+                'WhatsApp: +201019230287 / +201278886884',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.blue,
-                  decoration: TextDecoration.underline,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'Or email us at: support@eagles.com',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.blue,
-              ),
-            ),
+            
             const SizedBox(height: 30),
             // Log Out Button
             Center(
