@@ -16,16 +16,18 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
   int totalAdmins = 0;
 
   List<Map<String, dynamic>> users = [];
+  List<Map<String, dynamic>> filteredAdmins = [];
   List<Map<String, dynamic>> filteredActiveSubscribers = [];
   List<Map<String, dynamic>> filteredInactiveSubscribers = [];
-  List<Map<String, dynamic>> filteredAdmins = [];
 
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_filterUsers);
+    _searchController.addListener(() {
+      _filterUsers(_searchController.text);
+    });
   }
 
   @override
@@ -34,13 +36,13 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
     super.dispose();
   }
 
-  // Filter users based on role and subscription status
-  void _filterUsers() {
-    String query = _searchController.text.toLowerCase();
+  void _filterUsers(String query) {
     setState(() {
+      final lowerQuery = query.toLowerCase();
+
       filteredAdmins = users.where((user) {
         final email = user['email']?.toLowerCase() ?? '';
-        return user['role'] == 'admin' && email.contains(query);
+        return user['role'] == 'admin' && email.contains(lowerQuery);
       }).toList();
 
       filteredActiveSubscribers = users.where((user) {
@@ -48,7 +50,7 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
         final email = user['email']?.toLowerCase() ?? '';
         return subscriptionEnd != null &&
             subscriptionEnd.isAfter(DateTime.now()) &&
-            email.contains(query) &&
+            email.contains(lowerQuery) &&
             user['role'] != 'admin';
       }).toList();
 
@@ -56,7 +58,7 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
         final subscriptionEnd = user['subscriptionEnd']?.toDate();
         final email = user['email']?.toLowerCase() ?? '';
         return (subscriptionEnd == null || subscriptionEnd.isBefore(DateTime.now())) &&
-            email.contains(query) &&
+            email.contains(lowerQuery) &&
             user['role'] != 'admin';
       }).toList();
     });
@@ -103,20 +105,8 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
             return data;
           }).toList();
 
-          // Update user counts
           totalUsers = users.length;
-          filteredAdmins = users.where((user) => user['role'] == 'admin').toList();
-          filteredActiveSubscribers = users.where((user) {
-            final subscriptionEnd = user['subscriptionEnd']?.toDate();
-            return subscriptionEnd != null &&
-                subscriptionEnd.isAfter(DateTime.now()) &&
-                user['role'] != 'admin';
-          }).toList();
-          filteredInactiveSubscribers = users.where((user) {
-            final subscriptionEnd = user['subscriptionEnd']?.toDate();
-            return (subscriptionEnd == null || subscriptionEnd.isBefore(DateTime.now())) &&
-                user['role'] != 'admin';
-          }).toList();
+          _filterUsers(_searchController.text); // Reapply filter whenever data changes
 
           activeSubscribers = filteredActiveSubscribers.length;
           inactiveSubscribers = filteredInactiveSubscribers.length;
@@ -167,13 +157,14 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
                 child: ListView(
                   children: [
                     // Admins Section
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'Admins',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                    if (filteredAdmins.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          'Admins',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                        ),
                       ),
-                    ),
                     ...filteredAdmins.map((user) => ListTile(
                           title: Text(user['name'] ?? 'No Name'),
                           subtitle: Text(user['email'] ?? 'No Email'),
@@ -181,13 +172,14 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
                         )),
 
                     // Active Subscribers Section
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'Active Subscribers',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                    if (filteredActiveSubscribers.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          'Active Subscribers',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
                       ),
-                    ),
                     ...filteredActiveSubscribers.map((user) => ListTile(
                           title: Text(user['name'] ?? 'No Name'),
                           subtitle: Text(user['email'] ?? 'No Email'),
@@ -195,13 +187,14 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
                         )),
 
                     // Inactive Subscribers Section
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'Inactive Subscribers',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                    if (filteredInactiveSubscribers.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          'Inactive Subscribers',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                        ),
                       ),
-                    ),
                     ...filteredInactiveSubscribers.map((user) => ListTile(
                           title: Text(user['name'] ?? 'No Name'),
                           subtitle: Text(user['email'] ?? 'No Email'),
