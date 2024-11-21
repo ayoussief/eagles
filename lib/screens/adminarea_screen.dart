@@ -10,23 +10,16 @@ class AdminAreaScreen extends StatefulWidget {
 }
 
 class _AdminAreaScreenState extends State<AdminAreaScreen> {
-  int totalUsers = 0;
-  int activeSubscribers = 0;
-  int inactiveSubscribers = 0;
-  int totalAdmins = 0;
-
-  List<Map<String, dynamic>> users = [];
-  List<Map<String, dynamic>> filteredAdmins = [];
-  List<Map<String, dynamic>> filteredActiveSubscribers = [];
-  List<Map<String, dynamic>> filteredInactiveSubscribers = [];
-
-  final TextEditingController _searchController = TextEditingController();
+  TextEditingController _searchController = TextEditingController();
+  String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      _filterUsers(_searchController.text);
+      setState(() {
+        searchQuery = _searchController.text.toLowerCase();
+      });
     });
   }
 
@@ -34,34 +27,6 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _filterUsers(String query) {
-    setState(() {
-      final lowerQuery = query.toLowerCase();
-
-      filteredAdmins = users.where((user) {
-        final email = user['email']?.toLowerCase() ?? '';
-        return user['role'] == 'admin' && email.contains(lowerQuery);
-      }).toList();
-
-      filteredActiveSubscribers = users.where((user) {
-        final subscriptionEnd = user['subscriptionEnd']?.toDate();
-        final email = user['email']?.toLowerCase() ?? '';
-        return subscriptionEnd != null &&
-            subscriptionEnd.isAfter(DateTime.now()) &&
-            email.contains(lowerQuery) &&
-            user['role'] != 'admin';
-      }).toList();
-
-      filteredInactiveSubscribers = users.where((user) {
-        final subscriptionEnd = user['subscriptionEnd']?.toDate();
-        final email = user['email']?.toLowerCase() ?? '';
-        return (subscriptionEnd == null || subscriptionEnd.isBefore(DateTime.now())) &&
-            email.contains(lowerQuery) &&
-            user['role'] != 'admin';
-      }).toList();
-    });
   }
 
   void _showUserDetails(Map<String, dynamic> userData) {
@@ -76,6 +41,51 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
     );
   }
 
+  Widget _buildUserList(
+      AsyncSnapshot<QuerySnapshot> snapshot, String roleFilter, bool isActive) {
+    final now = DateTime.now();
+
+    final filteredUsers = snapshot.data!.docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final role = data['role'] ?? '';
+      final email = data['email']?.toLowerCase() ?? '';
+      final subscriptionEnd = data['subscriptionEnd']?.toDate();
+
+      // Role filter
+      final isRoleMatched = role == roleFilter;
+
+      // For admins, we don't check subscription status
+      if (roleFilter == 'admin') {
+        return isRoleMatched && email.contains(searchQuery);
+      }
+
+      // Subscription status filter for non-admin users
+      final isSubscriptionMatched = isActive
+          ? subscriptionEnd != null && subscriptionEnd.isAfter(now)
+          : subscriptionEnd == null || subscriptionEnd.isBefore(now);
+
+      // Search query filter
+      final isSearchMatched = email.contains(searchQuery);
+
+      return isRoleMatched && isSubscriptionMatched && isSearchMatched;
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: filteredUsers.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return ListTile(
+          title: Text(data['name'] ?? 'No Name'),
+          subtitle: Text(data['email'] ?? 'No Email'),
+          onTap: () => _showUserDetails({
+            ...data,
+            'id': doc.id, // Include document ID for user details
+          }),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,129 +93,135 @@ class _AdminAreaScreenState extends State<AdminAreaScreen> {
         title: Text('Admin Area', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blueAccent,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('No users found.'));
-          }
-
-          // Update user data dynamically
-          users = snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            data['id'] = doc.id; // Include the userId (document ID)
-            return data;
-          }).toList();
-
-          totalUsers = users.length;
-          _filterUsers(_searchController.text); // Reapply filter whenever data changes
-
-          activeSubscribers = filteredActiveSubscribers.length;
-          inactiveSubscribers = filteredInactiveSubscribers.length;
-          totalAdmins = filteredAdmins.length;
-
-          // Render UI
-          return Column(
-            children: [
-              // Header Section
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total Users: $totalUsers', style: TextStyle(fontSize: 18)),
-                    Row(
-                      children: [
-                        Icon(Icons.supervisor_account, color: Colors.blue),
-                        SizedBox(width: 5),
-                        Text('$totalAdmins', style: TextStyle(color: Colors.blue)),
-                        SizedBox(width: 15),
-                        Icon(Icons.check_circle, color: Colors.green),
-                        SizedBox(width: 5),
-                        Text('$activeSubscribers', style: TextStyle(color: Colors.green)),
-                        SizedBox(width: 15),
-                        Icon(Icons.cancel, color: Colors.red),
-                        SizedBox(width: 5),
-                        Text('$inactiveSubscribers', style: TextStyle(color: Colors.red)),
-                      ],
+      body: Column(
+        children: [
+          // Header Section
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search by email',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
                     ),
-                  ],
-                ),
-              ),
-              // Search Bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    labelText: 'Search by email',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
                   ),
                 ),
-              ),
-              // User Lists
-              Expanded(
-                child: ListView(
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream:
+                  FirebaseFirestore.instance.collection('users').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                      child: Text('Error fetching users: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('No users found.'));
+                }
+
+                final allUsers = snapshot.data!.docs;
+                final totalUsers = allUsers.length;
+                final totalAdmins = allUsers
+                    .where((doc) =>
+                        (doc.data() as Map<String, dynamic>)['role'] == 'admin')
+                    .length;
+                final activeSubscribers = allUsers.where((doc) {
+                  final subscriptionEnd =
+                      (doc.data() as Map<String, dynamic>)['subscriptionEnd']
+                          ?.toDate();
+                  return subscriptionEnd != null &&
+                      subscriptionEnd.isAfter(DateTime.now()) &&
+                      (doc.data() as Map<String, dynamic>)['role'] != 'admin';
+                }).length;
+                final inactiveSubscribers =
+                    totalUsers - totalAdmins - activeSubscribers;
+
+                return ListView(
                   children: [
+                    // Header Info
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Total Users: $totalUsers',
+                              style: TextStyle(fontSize: 18)),
+                          Row(
+                            children: [
+                              Icon(Icons.supervisor_account,
+                                  color: Colors.blue),
+                              SizedBox(width: 5),
+                              Text('$totalAdmins',
+                                  style: TextStyle(color: Colors.blue)),
+                              SizedBox(width: 15),
+                              Icon(Icons.check_circle, color: Colors.green),
+                              SizedBox(width: 5),
+                              Text('$activeSubscribers',
+                                  style: TextStyle(color: Colors.green)),
+                              SizedBox(width: 15),
+                              Icon(Icons.cancel, color: Colors.red),
+                              SizedBox(width: 5),
+                              Text('$inactiveSubscribers',
+                                  style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                     // Admins Section
-                    if (filteredAdmins.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Admins',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Admins',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue),
                       ),
-                    ...filteredAdmins.map((user) => ListTile(
-                          title: Text(user['name'] ?? 'No Name'),
-                          subtitle: Text(user['email'] ?? 'No Email'),
-                          onTap: () => _showUserDetails(user),
-                        )),
-
+                    ),
+                    _buildUserList(snapshot, 'admin', true),
                     // Active Subscribers Section
-                    if (filteredActiveSubscribers.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Active Subscribers',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Active Subscribers',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green),
                       ),
-                    ...filteredActiveSubscribers.map((user) => ListTile(
-                          title: Text(user['name'] ?? 'No Name'),
-                          subtitle: Text(user['email'] ?? 'No Email'),
-                          onTap: () => _showUserDetails(user),
-                        )),
-
+                    ),
+                    _buildUserList(snapshot, 'user', true),
                     // Inactive Subscribers Section
-                    if (filteredInactiveSubscribers.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Inactive Subscribers',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Inactive Subscribers',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red),
                       ),
-                    ...filteredInactiveSubscribers.map((user) => ListTile(
-                          title: Text(user['name'] ?? 'No Name'),
-                          subtitle: Text(user['email'] ?? 'No Email'),
-                          onTap: () => _showUserDetails(user),
-                        )),
+                    ),
+                    _buildUserList(snapshot, 'user', false),
                   ],
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
