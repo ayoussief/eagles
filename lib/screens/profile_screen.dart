@@ -13,6 +13,15 @@ class ProfileScreen extends StatelessWidget {
 
   ProfileScreen({super.key, required this.languageCode});
 
+  // Calculate balances dynamically
+  double calculateUsedBalance(List<dynamic> stocks) {
+    return stocks.fold(0.0, (sum, stock) {
+      final int quantity = stock['totalQuantity'] ?? 0;
+      final double averagePrice = stock['averagePrice'] ?? 0.0;
+      return sum + (quantity * averagePrice);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
@@ -35,6 +44,10 @@ class ProfileScreen extends StatelessWidget {
 
         // Get the user data from Firestore document
         final userData = snapshot.data!.data() as Map<String, dynamic>;
+        double totalBalance = userData['totalBalance'] ?? 0.0;
+        List<dynamic> stocks = userData['stocks'] ?? [];
+        double usedBalance = calculateUsedBalance(stocks);
+        double freeBalance = totalBalance - usedBalance;
 
         // Format the createdAt timestamp
         String createdAt = 'Date not available';
@@ -43,11 +56,6 @@ class ProfileScreen extends StatelessWidget {
           DateTime dateTime = timestamp.toDate();
           createdAt = DateFormat('yyyy-MM-dd').format(dateTime);
         }
-
-        // Extract balances
-        double totalBalance = userData['totalBalance'] ?? 0.0;
-        double usedBalance = userData['usedBalance'] ?? 0.0;
-        double freeBalance = userData['freeBalance'] ?? 0.0;
 
         // Subscription dates
         DateTime? subscriptionStart = userData['subscriptionStart'] != null
@@ -62,9 +70,6 @@ class ProfileScreen extends StatelessWidget {
         if (subscriptionEnd != null) {
           daysLeft = subscriptionEnd.difference(DateTime.now()).inDays;
         }
-
-        // Extract user's stocks
-        List<dynamic> stocks = userData['stocks'] ?? [];
 
         return Scaffold(
           appBar: AppBar(
@@ -116,21 +121,27 @@ class ProfileScreen extends StatelessWidget {
                   SizedBox(height: 20),
 
                   // Display and edit balances
+                  // Total Balance (editable)
                   _buildBalanceRow(
-                      translations[languageCode]?['total_balance'] ??
-                          'Total Balance',
-                      totalBalance,
-                      (newValue) => _updateBalance('totalBalance', newValue)),
-                  _buildBalanceRow(
-                      translations[languageCode]?['used_balance'] ??
-                          'Used Balance',
-                      usedBalance,
-                      (newValue) => _updateBalance('usedBalance', newValue)),
-                  _buildBalanceRow(
-                      translations[languageCode]?['free_balance'] ??
-                          'Free Balance',
-                      freeBalance,
-                      (newValue) => _updateBalance('freeBalance', newValue)),
+                    translations[languageCode]?['total_balance'] ??
+                        'Total Balance',
+                    totalBalance,
+                    (newValue) => _updateBalance('totalBalance', newValue),
+                  ),
+
+                  // Used Balance (read-only)
+                  _buildReadOnlyBalanceRow(
+                    translations[languageCode]?['used_balance'] ??
+                        'Used Balance',
+                    usedBalance,
+                  ),
+
+                  // Free Balance (read-only)
+                  _buildReadOnlyBalanceRow(
+                    translations[languageCode]?['free_balance'] ??
+                        'Free Balance',
+                    freeBalance,
+                  ),
 
                   SizedBox(height: 20),
 
@@ -346,6 +357,20 @@ class ProfileScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  // Helper method to display non-editable balances
+  Widget _buildReadOnlyBalanceRow(String label, double value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: 16)),
+        Text(
+          '\$${value.toStringAsFixed(2)}',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 
