@@ -7,13 +7,20 @@ import 'package:eagles/services/auth.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:provider/provider.dart';
 
-class SignupScreen extends StatelessWidget {
-  final GlobalKey<FormState> _globalKey = GlobalKey<FormState>();
+class SignupScreen extends StatefulWidget {
   static String id = "SignupScreen";
-  String? _name , _email, _password;
-  final _auth = Auth();
 
-  SignupScreen({super.key});
+  const SignupScreen({Key? key}) : super(key: key);
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final GlobalKey<FormState> _globalKey = GlobalKey<FormState>();
+  String? _name, _email, _password;
+  bool _termsAccepted = false; // Track if the terms are accepted
+  final _auth = Auth();
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +47,8 @@ class SignupScreen extends StatelessWidget {
                         bottom: 0,
                         child: Text(
                           'Eagles Trading',
-                          style: TextStyle(fontFamily: 'Pacifico', fontSize: 25),
+                          style:
+                              TextStyle(fontFamily: 'Pacifico', fontSize: 25),
                         ),
                       ),
                     ],
@@ -51,11 +59,12 @@ class SignupScreen extends StatelessWidget {
                 height: height * .1,
               ),
               CustomTextField(
-                  onClick: (value) {
-                    _name = value!.trim();
-                  },
-                  icon: Icons.person,
-                  hint: "Enter your name"),
+                onClick: (value) {
+                  _name = value!.trim();
+                },
+                icon: Icons.person,
+                hint: "Enter your name",
+              ),
               SizedBox(
                 height: height * .015,
               ),
@@ -77,70 +86,95 @@ class SignupScreen extends StatelessWidget {
                 icon: Icons.lock,
               ),
               SizedBox(
+                height: height * .02,
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _termsAccepted,
+                    onChanged: (value) {
+                      setState(() {
+                        _termsAccepted = value ?? false;
+                      });
+                    },
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "I accept the terms and conditions",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              if (!_termsAccepted)
+                const Padding(
+                  padding: EdgeInsets.only(left: 16.0),
+                  child: Text(
+                    "You must accept the terms and conditions to proceed.",
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              SizedBox(
                 height: height * .05,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 120),
                 child: TextButton(
-                  // onPressed: () async {
-                  //   if (_globalKey.currentState?.validate() ?? false) {
-                  //     _globalKey.currentState?.save();
-                  //     print(_email);
-                  //     print(_password);
-                  //     try {
-                  //       final userCredential = await _auth.signUp(_email!, _password!);
-                  //       print(userCredential.user!.uid);
-                  //       // Navigate to another screen upon successful signup
-                  //     } catch (e) {
-                  //       // Handle any errors
-                  //       print('Error: $e'); // Show a dialog or snackbar with the error message.
-                  //     }
-                  //   }
-                  // },
-        
                   onPressed: () async {
-                    final modalhud = Provider.of<ModalHud>(context, listen: false);
+                    if (!_termsAccepted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Please accept the terms and conditions.'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final modalhud =
+                        Provider.of<ModalHud>(context, listen: false);
                     modalhud.changeisLoading(true);
 
                     if (_globalKey.currentState?.validate() ?? false) {
                       _globalKey.currentState?.save();
                       try {
-                            final userCredential =
-                                await _auth.signUp(_name!, _email!, _password!);
+                        final userCredential = await _auth.signUp(
+                          _name!,
+                          _email!,
+                          _password!,
+                          _termsAccepted, // Pass the termsAccepted boolean here
+                        );
 
-                                modalhud.changeisLoading(false);
-                                // Show a SnackBar message indicating successful signup
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Signup successful!'),
-                                    duration: Duration(
-                                        seconds:
-                                            2), // Duration the SnackBar will be visible
-                                  ),
-                                );
-            
-                            // Navigate to the LoginScreen after successful signup
-                            Navigator.pushReplacementNamed(context, LoginScreen.id);
-                          } catch (e) {
-                                modalhud.changeisLoading(false);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: $e'), // Show error message
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
+                        modalhud.changeisLoading(false);
+
+                        // Show a SnackBar message indicating successful signup
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Signup successful!'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+
+                        // Navigate to the LoginScreen after successful signup
+                        Navigator.pushReplacementNamed(context, LoginScreen.id);
+                      } catch (e) {
+                        modalhud.changeisLoading(false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error: $e'), // Show error message
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     }
 
                     modalhud.changeisLoading(false);
-
                   },
-        
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                          20), // Set your desired border radius
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
                   child: const Text(
@@ -154,24 +188,6 @@ class SignupScreen extends StatelessWidget {
               SizedBox(
                 height: height * .05,
               ),
-              // const Row(
-              //   mainAxisAlignment: MainAxisAlignment.center,
-              //   children: [
-              //     Text(
-              //       'Don\'t have an account?',
-              //       style: TextStyle(
-              //         color: Colors.white,
-              //         fontSize: 16
-              //       ),
-              //     ),
-              //     Text(
-              //       'Contact us',
-              //       style: TextStyle(
-              //         fontSize: 16
-              //       ),
-              //     ),
-              //   ],
-              // ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -190,10 +206,8 @@ class SignupScreen extends StatelessWidget {
                       'Login',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors
-                            .black, // Optional: change color for better visibility
-                        decoration: TextDecoration
-                            .none, // Optional: underline for link effect
+                        color: Colors.black,
+                        decoration: TextDecoration.none,
                       ),
                     ),
                   ),

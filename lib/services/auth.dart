@@ -5,15 +5,18 @@ class Auth {
   final _auth = FirebaseAuth.instance;
 
   // Sign up method
-  Future<UserCredential> signUp(String name, String email, String password) async {
+  Future<UserCredential> signUp(String name, String email, String password, bool termsAccepted) async {
     final userCredential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
 
     // Set the user role and additional info (name, email) in Firestore
-    await _setUserDetails(userCredential.user!.uid, name, email); 
+    await _setUserDetails(userCredential.user!.uid, name, email, termsAccepted); 
     return userCredential;
+
+    
+  
   }
 
   // Sign in method
@@ -36,11 +39,12 @@ class Auth {
   }
 
   // Set user details (name, email, and role) in Firestore
-  Future<void> _setUserDetails(String userId, String name, String email) async {
+  Future<void> _setUserDetails(String userId, String name, String email, bool termsAccepted) async {
     await FirebaseFirestore.instance.collection('users').doc(userId).set({
       'role': 'user', // Default role
       'name': name,
       'email': email,
+      'termsAccepted': termsAccepted,
       'createdAt': Timestamp.now(),
     });
   }
