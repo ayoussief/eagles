@@ -15,11 +15,178 @@ class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   DocumentSnapshot? _lastPostSnapshot;
+  final TextEditingController _commentController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _listenToNewPosts();
+  }
+
+  Future<void> _addComment(String postId, String content) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("You must be logged in to comment")),
+      );
+      return;
+    }
+
+    try {
+      // Fetch the user's name from the 'users' collection using the userId
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(user.uid).get();
+      String userName = userDoc.exists ? userDoc['name'] : 'Anonymous';
+
+      // Add the comment with the username and userId
+      await _firestore
+          .collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .add({
+        'username': userName, // Store username from the 'users' collection
+        'userId': user.uid, // Store userId to reference the user
+        'content': content,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Comment added successfully")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to add comment: $e")),
+      );
+      print("Error adding comment: $e");
+    }
+  }
+
+  Future<void> _reactToPost(String postId, String reactionType) async {
+    User? user = _auth.currentUser;
+    if (user == null) return;
+
+    DocumentReference postRef = _firestore.collection('posts').doc(postId);
+    DocumentSnapshot postSnapshot = await postRef.get();
+
+    if (postSnapshot.exists) {
+      List likes = postSnapshot['likes'] as List;
+      List dislikes = postSnapshot['dislikes'] as List;
+
+      if (reactionType == 'like') {
+        if (likes.contains(user.uid)) {
+          // Remove like
+          likes.remove(user.uid);
+        } else {
+          // Add like and remove dislike if exists
+          likes.add(user.uid);
+          dislikes.remove(user.uid);
+        }
+      } else if (reactionType == 'dislike') {
+        if (dislikes.contains(user.uid)) {
+          // Remove dislike
+          dislikes.remove(user.uid);
+        } else {
+          // Add dislike and remove like if exists
+          dislikes.add(user.uid);
+          likes.remove(user.uid);
+        }
+      }
+
+      // Update the reactions in Firestore
+      await postRef.update({
+        'likes': likes,
+        'dislikes': dislikes,
+      });
+    }
+  }
+
+  Widget _buildCommentsSection(String postId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+              child: CircularProgressIndicator()); // Loading indicator
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              "No comments yet. Be the first to comment!",
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
+        return ListView(
+          shrinkWrap:
+              true, // Necessary for embedding in another scrollable widget
+          children: snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return ListTile(
+              leading: CircleAvatar(
+                child: Text(
+                  data['username'] != null && data['username'].isNotEmpty
+                      ? data['username'][0].toUpperCase()
+                      : '?',
+                ),
+              ),
+              title: Text(data['username'] ?? 'Anonymous'),
+              subtitle: Text(data['comment'] ?? ''),
+              trailing: Text(
+                DateFormat('MMM d, h:mm a').format(
+                  (data['timestamp'] as Timestamp).toDate(),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddCommentSection(String postId) {
+    final TextEditingController commentController = TextEditingController();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: commentController,
+              decoration: InputDecoration(
+                hintText: "Add a comment...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.send, color: Colors.blue),
+            onPressed: () async {
+              if (commentController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Comment cannot be empty")),
+                );
+                return;
+              }
+              await _addComment(postId, commentController.text.trim());
+              commentController.clear();
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _listenToNewPosts() async {
@@ -108,6 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         'title': titleController.text,
                         'content': contentController.text,
                         'timestamp': FieldValue.serverTimestamp(),
+                        'likes': [], // List of user IDs
+                        'dislikes': [], // List of user IDs
                       });
                     } else {
                       await _firestore.collection('posts').doc(postsId).update({
@@ -137,152 +306,276 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _deletePost(BuildContext context, String postId) async {
-  // Show a confirmation dialog before deleting
-  bool confirmDelete = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        title: Text('Delete Post'),
-        content: Text('Are you sure you want to delete this post?'),
-        actions: <Widget>[
-          TextButton(
-            child: Text('Cancel'),
-            onPressed: () {
-              Navigator.of(context).pop(false); // Cancel the action
-            },
-          ),
-          TextButton(
-            child: Text('Delete'),
-            onPressed: () {
-              Navigator.of(context).pop(true); // Confirm the deletion
-            },
-          ),
-        ],
-      );
-    },
-  ) ?? false;
-
-  // Proceed only if the user confirms
-  if (confirmDelete) {
-    try {
-      await _firestore.collection('posts').doc(postId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Post deleted successfully')));
-    } catch (e) {
-      print("Error deleting post: ${e.toString()}");
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting post: ${e.toString()}')));
-    }
-  }
-}
-
-
-@override
-Widget build(BuildContext context) {
-  return FutureBuilder<bool>(
-    future: _isAdmin(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData) {
-        return Center(child: CircularProgressIndicator());
-      }
-      final isAdmin = snapshot.data!;
-
-      return Scaffold(
-        backgroundColor: KSecondaryColor,
-        body: StreamBuilder<QuerySnapshot>(
-          stream: _firestore
-              .collection('posts')
-              .orderBy('timestamp', descending: true)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Center(child: Text("No posts available."));
-            }
-
-            return ListView(
-              children: snapshot.data!.docs.map((doc) {
-                // Extract and format the date
-                Timestamp timestamp = doc['timestamp'];
-                DateTime postDate = timestamp.toDate();
-                String formattedDate = DateFormat('MMMM dd, yyyy, h:mm a').format(postDate);
-
-                return Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(
-                            formattedDate,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                        ListTile(
-                          title: Text(
-                            doc['title'],
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Colors.black,
-                            ),
-                          ),
-                          subtitle: Text(
-                            doc['content'],
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black,
-                            ),
-                          ),
-                          trailing: isAdmin
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.edit, color: Colors.black),
-                                      onPressed: () => _addOrEditPosts(
-                                        context,
-                                        postsId: doc.id,
-                                        title: doc['title'],
-                                        content: doc['content'],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete, color: Colors.black),
-                                      onPressed: () => _deletePost(context, doc.id),
-                                    ),
-                                  ],
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+    // Show a confirmation dialog before deleting
+    bool confirmDelete = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Delete Post'),
+              content: Text('Are you sure you want to delete this post?'),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop(false); // Cancel the action
+                  },
+                ),
+                TextButton(
+                  child: Text('Delete'),
+                  onPressed: () {
+                    Navigator.of(context).pop(true); // Confirm the deletion
+                  },
+                ),
+              ],
             );
           },
-        ),
-        floatingActionButton: isAdmin
-            ? FloatingActionButton(
-                onPressed: () => _addOrEditPosts(context),
-                child: Icon(Icons.add),
-              )
-            : null,
-      );
-    },
-  );
-}
+        ) ??
+        false;
+
+    // Proceed only if the user confirms
+    if (confirmDelete) {
+      try {
+        await _firestore.collection('posts').doc(postId).delete();
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Post deleted successfully')));
+      } catch (e) {
+        print("Error deleting post: ${e.toString()}");
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting post: ${e.toString()}')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _isAdmin(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Center(child: CircularProgressIndicator());
+        }
+        final isAdmin = snapshot.data!;
+
+        return Scaffold(
+          backgroundColor: KSecondaryColor,
+          body: StreamBuilder<QuerySnapshot>(
+            stream: _firestore
+                .collection('posts')
+                .orderBy('timestamp', descending: true)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Center(child: Text("No posts available."));
+              }
+
+              return ListView(
+                children: snapshot.data!.docs.map((doc) {
+                  Timestamp timestamp = doc['timestamp'];
+                  DateTime postDate = timestamp.toDate();
+                  String formattedDate =
+                      DateFormat('MMMM dd, yyyy, h:mm a').format(postDate);
+
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 2,
+                            blurRadius: 5,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              formattedDate,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            title: Text(
+                              doc['title'],
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.black,
+                              ),
+                            ),
+                            subtitle: Text(
+                              doc['content'],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black,
+                              ),
+                            ),
+                            trailing: isAdmin
+                                ? Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(Icons.edit,
+                                            color: Colors.black),
+                                        onPressed: () => _addOrEditPosts(
+                                          context,
+                                          postsId: doc.id,
+                                          title: doc['title'],
+                                          content: doc['content'],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.delete,
+                                            color: Colors.black),
+                                        onPressed: () =>
+                                            _deletePost(context, doc.id),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                          ),
+                          Divider(color: Colors.grey[300]),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(Icons.thumb_up_alt_outlined,
+                                          color: Colors.blue),
+                                      onPressed: () =>
+                                          _reactToPost(doc.id, 'like'),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.thumb_down_alt_outlined,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          _reactToPost(doc.id, 'dislike'),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '${(doc['likes'] as List).length} Likes, ${(doc['dislikes'] as List).length} Dislikes',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(color: Colors.grey[300]),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Comments',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                StreamBuilder<QuerySnapshot>(
+                                  stream: _firestore
+                                      .collection('posts')
+                                      .doc(doc.id)
+                                      .collection('comments')
+                                      .orderBy('timestamp', descending: true)
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) {
+                                      return Center(
+                                          child: CircularProgressIndicator());
+                                    }
+
+                                    final comments = snapshot.data!.docs;
+                                    return ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemCount: comments.length,
+                                      itemBuilder: (context, index) {
+                                        final comment = comments[index];
+                                        Timestamp timestamp =
+                                            comment['timestamp'];
+                                        DateTime commentDate =
+                                            timestamp.toDate();
+                                        String commentDateString =
+                                            DateFormat('MMM dd, yyyy, h:mm a')
+                                                .format(commentDate);
+
+                                        return ListTile(
+                                          leading: CircleAvatar(
+                                            child: Text(
+                                              comment['username'][
+                                                  0], // First letter of username
+                                            ),
+                                          ),
+                                          title: Text(comment[
+                                              'username']), // Display the username
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(comment['content']),
+                                              SizedBox(height: 5),
+                                              Text(
+                                                commentDateString,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+
+                                SizedBox(height: 10),
+                                // Comments input section
+                                Column(
+                                  children: [
+                                    _buildAddCommentSection(
+                                        doc.id), // Pass the post ID
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
+          floatingActionButton: isAdmin
+              ? FloatingActionButton(
+                  onPressed: () => _addOrEditPosts(context),
+                  child: Icon(Icons.add),
+                )
+              : null,
+        );
+      },
+    );
+  }
 }
