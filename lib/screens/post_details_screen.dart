@@ -1,157 +1,235 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:eagles/constants.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-class PostDetailsScreen extends StatefulWidget {
+class PostDetailsScreen extends StatelessWidget {
   final String postId;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   PostDetailsScreen({required this.postId});
 
   @override
-  _PostDetailsScreenState createState() => _PostDetailsScreenState();
-}
-
-class _PostDetailsScreenState extends State<PostDetailsScreen> {
-  bool showAllComments = false; // Flag to show all comments
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  TextEditingController _commentController = TextEditingController(); // Controller for the comment text field
-  String? _userId = 'user123'; // Simulate user ID (Replace with actual user authentication logic)
-  String? _username = 'John Doe'; // Simulate username (Replace with actual username from auth)
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Post Details")),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Your post content here
+      appBar: AppBar(
+        title: Text('Post Details'),
+        backgroundColor: KMainColor, // Use KMainColor for the app bar
+      ),
+      backgroundColor: KSecondaryColor, // Use KSecondaryColor for the body background
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('posts')
+            .doc(postId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
 
-            // Comments section
-            Text(
-              'Comments',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.black,
-              ),
-            ),
-            StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('posts')
-                  .doc(widget.postId)
-                  .collection('comments')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return Center(child: CircularProgressIndicator());
-                }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return Center(child: Text('Post not found'));
+          }
 
-                final comments = snapshot.data!.docs;
-                int displayedCommentsCount = showAllComments ? comments.length : 1; // Show only 1 initially
+          final post = snapshot.data!;
+          final Timestamp postTimestamp = post['timestamp'];
+          final DateTime postDate = postTimestamp.toDate();
+          final String formattedPostDate =
+              DateFormat('MMM dd, yyyy, h:mm a').format(postDate);
 
-                return Column(
-                  children: [
-                    ListView.builder(
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Original Post Section
+                Card(
+                  margin: EdgeInsets.all(10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  color: Colors.white, // Post background set to white
+                  child: Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post['title'] ?? 'No Title',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          formattedPostDate,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        Divider(color: Colors.grey[300]),
+                        Text(
+                          post['content'] ?? 'No Content',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${(post['likes'] as List).length} Likes, ${(post['dislikes'] as List).length} Dislikes',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.thumb_up_alt_outlined,
+                                      color: Colors.blue),
+                                  onPressed: () => _reactToPost(postId, 'like'),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.thumb_down_alt_outlined,
+                                      color: Colors.red),
+                                  onPressed: () =>
+                                      _reactToPost(postId, 'dislike'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Comments Section
+                Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Text(
+                    'Comments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('posts')
+                      .doc(postId)
+                      .collection('comments')
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
+                  builder: (context, commentSnapshot) {
+                    if (!commentSnapshot.hasData) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+
+                    final comments = commentSnapshot.data!.docs;
+
+                    return ListView.builder(
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
-                      itemCount: displayedCommentsCount,
+                      itemCount: comments.length,
                       itemBuilder: (context, index) {
                         final comment = comments[index];
-                        Timestamp timestamp = comment['timestamp'];
-                        DateTime commentDate = timestamp.toDate();
-                        String commentDateString = DateFormat('MMM dd, yyyy, h:mm a').format(commentDate);
+                        final Timestamp timestamp = comment['timestamp'];
+                        final DateTime commentDate = timestamp.toDate();
+                        final String commentDateString =
+                            DateFormat('MMM dd, yyyy, h:mm a')
+                                .format(commentDate);
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            child: Text(comment['username'][0]), // First letter of username
+                        return Card(
+                          margin:
+                              EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          title: Text(comment['username']), // Display username
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(comment['content']),
-                              SizedBox(height: 5),
-                              Text(
-                                commentDateString,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
+                          color: Colors.white, // Comment background set to white
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.blue,
+                              child: Text(
+                                comment['username'][0].toUpperCase(),
+                                style: TextStyle(color: Colors.white),
                               ),
-                            ],
+                            ),
+                            title: Text(
+                              comment['username'],
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(comment['content']),
+                                SizedBox(height: 5),
+                                Text(
+                                  commentDateString,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
-                    ),
-                    // Show "Show All" button if there are more comments to show
-                    if (!showAllComments && comments.length > 1)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            showAllComments = true; // Show all comments
-                          });
-                        },
-                        child: Text('Show All Comments'),
-                      ),
-                  ],
-                );
-              },
+                    );
+                  },
+                ),
+              ],
             ),
-
-            // Add new comment section
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Row(
-                children: [
-                  // Comment input field
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      decoration: InputDecoration(
-                        labelText: 'Add a comment...',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  // Submit button
-                  IconButton(
-                    icon: Icon(Icons.send),
-                    onPressed: _addComment,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  // Function to handle adding a comment
-  Future<void> _addComment() async {
-    final content = _commentController.text.trim();
-    if (content.isEmpty) {
-      return; // Do nothing if the comment is empty
-    }
+  Future<void> _reactToPost(String postId, String reactionType) async {
+    User? user = _auth.currentUser;
+    if (user == null) return;
 
-    try {
-      // Add the comment to Firestore
-      await _firestore.collection('posts').doc(widget.postId).collection('comments').add({
-        'content': content,
-        'timestamp': FieldValue.serverTimestamp(),
-        'userId': _userId, // Replace with actual user ID
-        'username': _username, // Replace with actual username
+    DocumentReference postRef = _firestore.collection('posts').doc(postId);
+    DocumentSnapshot postSnapshot = await postRef.get();
+
+    if (postSnapshot.exists) {
+      List likes = postSnapshot['likes'] as List;
+      List dislikes = postSnapshot['dislikes'] as List;
+
+      if (reactionType == 'like') {
+        if (likes.contains(user.uid)) {
+          // Remove like
+          likes.remove(user.uid);
+        } else {
+          // Add like and remove dislike if exists
+          likes.add(user.uid);
+          dislikes.remove(user.uid);
+        }
+      } else if (reactionType == 'dislike') {
+        if (dislikes.contains(user.uid)) {
+          // Remove dislike
+          dislikes.remove(user.uid);
+        } else {
+          // Add dislike and remove like if exists
+          dislikes.add(user.uid);
+          likes.remove(user.uid);
+        }
+      }
+
+      // Update the reactions in Firestore
+      await postRef.update({
+        'likes': likes,
+        'dislikes': dislikes,
       });
-
-      // Clear the text field after submitting
-      _commentController.clear();
-    } catch (e) {
-      print('Error adding comment: $e');
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:eagles/constants.dart';
+import 'package:eagles/screens/post_details_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -505,58 +506,82 @@ class _HomeScreenState extends State<HomeScreen> {
                                     }
 
                                     final comments = snapshot.data!.docs;
-                                    return ListView.builder(
-                                      shrinkWrap: true,
-                                      physics: NeverScrollableScrollPhysics(),
-                                      itemCount: comments.length,
-                                      itemBuilder: (context, index) {
-                                        final comment = comments[index];
-                                        Timestamp timestamp =
-                                            comment['timestamp'];
-                                        DateTime commentDate =
-                                            timestamp.toDate();
-                                        String commentDateString =
-                                            DateFormat('MMM dd, yyyy, h:mm a')
-                                                .format(commentDate);
+                                    final displayComments = comments.take(
+                                        2); // Show only the first 2 comments
 
-                                        return ListTile(
-                                          leading: CircleAvatar(
-                                            child: Text(
-                                              comment['username'][
-                                                  0], // First letter of username
-                                            ),
-                                          ),
-                                          title: Text(comment[
-                                              'username']), // Display the username
-                                          subtitle: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(comment['content']),
-                                              SizedBox(height: 5),
-                                              Text(
-                                                commentDateString,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color: Colors.grey[600],
+                                    return Column(
+                                      children: [
+                                        ListView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              NeverScrollableScrollPhysics(),
+                                          itemCount: displayComments.length,
+                                          itemBuilder: (context, index) {
+                                            final comment = displayComments
+                                                .elementAt(index);
+                                            Timestamp timestamp =
+                                                comment['timestamp'];
+                                            DateTime commentDate =
+                                                timestamp.toDate();
+                                            String commentDateString =
+                                                DateFormat(
+                                                        'MMM dd, yyyy, h:mm a')
+                                                    .format(commentDate);
+
+                                            return ListTile(
+                                              leading: CircleAvatar(
+                                                child: Text(
+                                                  comment['username'][
+                                                      0], // First letter of username
                                                 ),
                                               ),
-                                            ],
+                                              title: Text(comment['username']),
+                                              subtitle: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(comment['content']),
+                                                  SizedBox(height: 5),
+                                                  Text(
+                                                    commentDateString,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // "View All Comments" button
+                                        if (comments.length > 2)
+                                          TextButton(
+                                            onPressed: () {
+                                              // Navigate to post_details_screen.dart
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      PostDetailsScreen(
+                                                          postId: doc
+                                                              .id), // Pass post ID
+                                                ),
+                                              );
+                                            },
+                                            child: Text(
+                                              'View All Comments',
+                                              style:
+                                                  TextStyle(color: Colors.blue),
+                                            ),
                                           ),
-                                        );
-                                      },
+                                      ],
                                     );
                                   },
                                 ),
-
                                 SizedBox(height: 10),
-                                // Comments input section
-                                Column(
-                                  children: [
-                                    _buildAddCommentSection(
-                                        doc.id), // Pass the post ID
-                                  ],
-                                ),
+                                _buildAddCommentSection(
+                                    doc.id), // Add comment section
                               ],
                             ),
                           ),
