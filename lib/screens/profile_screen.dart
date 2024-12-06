@@ -196,9 +196,10 @@ class ProfileScreen extends StatelessWidget {
                                 currentValue - totalInvested;
                             final bool isProfitable = profitOrLoss > 0;
 
+                            // Inside the ListView.builder for stocks
                             return GestureDetector(
                               onTap: () {
-                                // Navigate to StockDetailScreen
+                                // Navigate to stock details
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -210,11 +211,9 @@ class ProfileScreen extends StatelessWidget {
                               child: Card(
                                 margin: EdgeInsets.symmetric(
                                     vertical: 8, horizontal: 16),
-                                elevation:
-                                    5, // Add some elevation for a shadow effect
+                                elevation: 5, // Add shadow
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      12), // Rounded corners
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
@@ -229,28 +228,26 @@ class ProfileScreen extends StatelessWidget {
                                                 ?['unknown_stock'] ??
                                             'Unknown Stock',
                                         style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                       SizedBox(height: 8),
-                                      // Quantity
+
+                                      // Stock details
                                       Text(
-                                        '${translations[languageCode]?['quantity'] ?? 'Quantity'}: $quantity',
-                                      ),
-                                      // Average Price
+                                          '${translations[languageCode]?['quantity'] ?? 'Quantity'}: ${stock['totalQuantity'] ?? 0}'),
                                       Text(
-                                        '${translations[languageCode]?['average_price'] ?? 'Average Price'}: \$${averagePrice.toStringAsFixed(2)}',
-                                      ),
-                                      // Current Price
+                                          '${translations[languageCode]?['average_price'] ?? 'Average Price'}: \$${(stock['averagePrice'] ?? 0.0).toStringAsFixed(2)}'),
                                       Text(
-                                        '${translations[languageCode]?['current_price'] ?? 'Current Price'}: \$${currentPrice.toStringAsFixed(2)}',
-                                      ),
-                                      // Profit/Loss
+                                          '${translations[languageCode]?['current_price'] ?? 'Current Price'}: \$${(stock['currentPrice'] ?? 0.0).toStringAsFixed(2)}'),
+
+                                      // Profit or loss
                                       Text(
-                                        '${translations[languageCode]?['profit_or_loss'] ?? 'Profit/Loss'}: ${isProfitable ? '+' : ''}\$${profitOrLoss.toStringAsFixed(2)}',
+                                        '${translations[languageCode]?['profit_or_loss'] ?? 'Profit/Loss'}: ${(stock['currentPrice'] ?? 0.0) > (stock['averagePrice'] ?? 0.0) ? '+' : ''}\$${((stock['currentPrice'] ?? 0.0) - (stock['averagePrice'] ?? 0.0)).toStringAsFixed(2)}',
                                         style: TextStyle(
-                                          color: isProfitable
+                                          color: (stock['currentPrice'] ??
+                                                      0.0) >
+                                                  (stock['averagePrice'] ?? 0.0)
                                               ? Colors.green
                                               : Colors.red,
                                           fontWeight: FontWeight.bold,
@@ -259,21 +256,183 @@ class ProfileScreen extends StatelessWidget {
                                       SizedBox(height: 16),
                                       // Row for Edit and Delete buttons
                                       Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          IconButton(
-                                            icon: Icon(Icons.edit),
-                                            onPressed: () =>
-                                                _showEditStockDialog(
-                                                    context, stock),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.delete),
-                                            onPressed: () =>
-                                                _removeStockFromUser(stock),
-                                          ),
-                                        ],
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            IconButton(
+                                              icon: Icon(Icons.edit),
+                                              onPressed: () =>
+                                                  _showEditStockDialog(
+                                                      context, stock),
+                                            ),
+                                            IconButton(
+                                              icon: Icon(Icons.delete),
+                                              onPressed: () =>
+                                                  _removeStockFromUser(stock),
+                                            ),
+                                          ]),
+
+                                      // Display comments for this stock
+                                      if (stock['comments'] != null &&
+                                          stock['comments'].isNotEmpty)
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(height: 8),
+                                            Text(
+                                              '${translations[languageCode]?['comments'] ?? 'Comments'}:',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16),
+                                            ),
+                                            SizedBox(height: 8),
+                                            // Display each comment
+                                            ...List<Widget>.generate(
+                                              stock['comments'].length,
+                                              (commentIndex) {
+                                                final comment =
+                                                    stock['comments']
+                                                        [commentIndex];
+                                                final userName =
+                                                    comment['userName'] ??
+                                                        'Unknown User';
+                                                final timestamp =
+                                                    (comment['timestamp']
+                                                            as Timestamp)
+                                                        .toDate();
+                                                final formattedTimestamp =
+                                                    "${timestamp.day}/${timestamp.month}/${timestamp.year} ${timestamp.hour}:${timestamp.minute}";
+
+                                                return Card(
+                                                  margin: EdgeInsets.symmetric(
+                                                      vertical: 4),
+                                                  elevation: 2,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8),
+                                                  ),
+                                                  child: ListTile(
+                                                    contentPadding:
+                                                        EdgeInsets.all(8),
+                                                    leading: CircleAvatar(
+                                                      child: Text(userName[0]
+                                                          .toUpperCase()), // Display first letter of the user's name
+                                                      backgroundColor:
+                                                          Colors.blueAccent,
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                    ),
+                                                    title: Text(userName),
+                                                    subtitle: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          comment['text'],
+                                                          style: TextStyle(
+                                                              color: Colors
+                                                                  .grey[700]),
+                                                        ),
+                                                        SizedBox(height: 4),
+                                                        Text(
+                                                          formattedTimestamp,
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              color:
+                                                                  Colors.grey),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+
+                                      // Add Comment Button
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: IconButton(
+                                          icon: Icon(Icons.add_comment,
+                                              color: Colors.blue),
+                                          onPressed: () async {
+                                            // Assuming 'stock' is the current stock object
+                                            final stockId = stock[
+                                                'stockId']; // Get the stockId from the stock object
+                                            final comment =
+                                                await _showAddCommentDialog(
+                                                    context);
+
+                                            if (comment != null &&
+                                                comment.isNotEmpty) {
+                                              // Retrieve the current user's name from FirebaseAuth or Firestore
+                                              final currentUser = FirebaseAuth
+                                                  .instance.currentUser;
+
+                                              if (currentUser != null) {
+                                                // Fetch user data from Firestore if necessary
+                                                final userDoc =
+                                                    await FirebaseFirestore
+                                                        .instance
+                                                        .collection('users')
+                                                        .doc(currentUser.uid)
+                                                        .get();
+                                                final userName =
+                                                    userDoc['name'] ??
+                                                        currentUser
+                                                            .displayName ??
+                                                        'Unknown User';
+
+                                                // Update Firestore with the new comment for the selected stock
+                                                FirebaseFirestore.instance
+                                                    .collection('users')
+                                                    .doc(user?.uid)
+                                                    .get()
+                                                    .then((userDoc) {
+                                                  final stocks = List.from(
+                                                      userDoc['stocks'] ?? []);
+
+                                                  // Find the stock in the user's stocks list
+                                                  final stockIndex =
+                                                      stocks.indexWhere((s) =>
+                                                          s['stockId'] ==
+                                                          stockId);
+
+                                                  if (stockIndex != -1) {
+                                                    final stock =
+                                                        stocks[stockIndex];
+                                                    final timestamp =
+                                                        Timestamp.now();
+
+                                                    // Add comment to the stock's comment list
+                                                    stock['comments'] = [
+                                                      ...(stock['comments'] ??
+                                                          []),
+                                                      {
+                                                        'text': comment,
+                                                        'timestamp': timestamp,
+                                                        'userName':
+                                                            userName, // Use the dynamic user name here
+                                                      }
+                                                    ];
+
+                                                    // Update the stock in Firestore
+                                                    FirebaseFirestore.instance
+                                                        .collection('users')
+                                                        .doc(user?.uid)
+                                                        .update({
+                                                      'stocks': stocks,
+                                                    });
+                                                  }
+                                                });
+                                              }
+                                            }
+                                          },
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -672,5 +831,31 @@ class ProfileScreen extends StatelessWidget {
         ])
       });
     }
+  }
+
+  Future<String?> _showAddCommentDialog(BuildContext context) async {
+    String comment = '';
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add Comment'),
+        content: TextField(
+          onChanged: (value) {
+            comment = value;
+          },
+          decoration: InputDecoration(hintText: 'Enter your comment'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, comment),
+            child: Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 }
